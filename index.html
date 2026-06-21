@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAUGE ROOM — 공정능력 · SPC 콘솔</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --ink:#0A0F1A; --panel:#111927; --panel-2:#182234; --line:#2A3A52;
+  --paper:#ECEFF4; --muted:#8C9BB5; --accent:#F4C338;
+  --good:#3FE0A5; --teal:#2BD9C9; --warn:#FFB020; --orange:#FF8A50; --bad:#FF5C66;
+  --radius:3px; --radius-lg:6px;
+  --font-disp:'IBM Plex Sans Condensed',sans-serif;
+  --font-body:'IBM Plex Sans',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+}
+html[data-theme="light"]{
+  --ink:#EEF1F6; --panel:#FFFFFF; --panel-2:#F3F5F9; --line:#D7DEE8;
+  --paper:#101826; --muted:#5C6B82; --accent:#B4860A;
+  --good:#0FA774; --teal:#0EA89B; --warn:#C9790A; --orange:#D9622D; --bad:#D6304B;
+  --shadow:0 8px 24px rgba(20,30,50,.10);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--ink); color:var(--paper); font-family:var(--font-body);
+  min-height:100vh; position:relative;
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--line) 35%, transparent) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--line) 35%, transparent) 0 1px, transparent 1px 28px);
+  background-attachment:fixed;
+}
+a{color:var(--accent);}
+h1,h2,h3,h4{font-family:var(--font-disp); margin:0; letter-spacing:.2px;}
+.mono{font-family:var(--font-mono);}
+.muted{color:var(--muted);}
+button{font-family:var(--font-body); cursor:pointer;}
+.hidden{display:none !important;}
+
+/* ============ LAYOUT ============ */
+.topbar{
+  display:flex; align-items:center; gap:18px; padding:14px 22px;
+  border-bottom:1px solid var(--line); background:color-mix(in srgb, var(--panel) 88%, transparent);
+  position:sticky; top:0; z-index:50; backdrop-filter:blur(6px);
+}
+.brand{display:flex; align-items:center; gap:10px;}
+.brand .mark{
+  width:34px;height:34px;border:2px solid var(--accent); border-radius:50%;
+  display:flex;align-items:center;justify-content:center; position:relative; flex:none;
+}
+.brand .mark::after{content:'';width:6px;height:6px;background:var(--accent);border-radius:50%;}
+.brand .mark::before{content:'';position:absolute;width:1px;height:14px;background:var(--accent);top:1px;left:50%;transform-origin:bottom center;}
+.brand h1{font-size:18px; font-weight:700; letter-spacing:.5px;}
+.brand .sub{font-size:11px; color:var(--muted); letter-spacing:.5px; text-transform:uppercase;}
+.tabs{display:flex; gap:4px; margin-left:8px;}
+.tab-btn{
+  background:transparent;border:1px solid transparent;color:var(--muted);
+  padding:8px 14px;border-radius:var(--radius); font-size:13.5px; font-weight:600;
+}
+.tab-btn.active{background:var(--panel-2); color:var(--paper); border-color:var(--line);}
+.tab-btn:hover:not(.active){color:var(--paper);}
+.spacer{flex:1;}
+.theme-toggle{
+  background:var(--panel-2); border:1px solid var(--line); color:var(--paper);
+  border-radius:var(--radius); padding:7px 10px; font-size:12px;
+}
+
+.statusbar{
+  display:flex; gap:24px; align-items:center; padding:10px 22px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line); background:color-mix(in srgb, var(--panel) 60%, transparent);
+  font-size:13px;
+}
+.status-item{display:flex; align-items:center; gap:8px;}
+.dot{width:9px;height:9px;border-radius:50%; flex:none; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 25%, transparent);}
+.dot.good{background:var(--good); color:var(--good);}
+.dot.warn{background:var(--warn); color:var(--warn);}
+.dot.bad{background:var(--bad); color:var(--bad);}
+.status-val{font-family:var(--font-mono); font-weight:600;}
+
+.layout{display:grid; grid-template-columns:320px 1fr; gap:0; align-items:start;}
+.sidebar{
+  border-right:1px solid var(--line); padding:18px; position:sticky; top:97px;
+  max-height:calc(100vh - 97px); overflow-y:auto;
+}
+.main{padding:20px 22px 60px; min-width:0;}
+@media (max-width:980px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{position:relative; max-height:none; border-right:none; border-bottom:1px solid var(--line);}
+  .topbar{flex-wrap:wrap;}
+}
+
+/* ============ PANELS / CARDS ============ */
+.panel{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-lg);
+  padding:16px 18px; margin-bottom:16px; position:relative;
+}
+.panel::before,.panel::after{
+  content:''; position:absolute; width:10px; height:10px; pointer-events:none; opacity:.55;
+}
+.panel::before{top:-1px;left:-1px;border-top:2px solid var(--accent); border-left:2px solid var(--accent);}
+.panel::after{bottom:-1px;right:-1px;border-bottom:2px solid var(--accent); border-right:2px solid var(--accent);}
+.panel h3{font-size:14px; text-transform:uppercase; letter-spacing:.6px; color:var(--paper); margin-bottom:2px;}
+.panel .panel-desc{font-size:12px; color:var(--muted); margin-bottom:12px;}
+.card-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px;}
+.stat-card{
+  background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius);
+  padding:12px 14px;
+}
+.stat-card .label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;}
+.stat-card .value{font-family:var(--font-mono); font-size:26px; font-weight:600; margin-top:2px;}
+.stat-card .note{font-size:11px; color:var(--muted); margin-top:4px;}
+
+/* ============ FORM CONTROLS ============ */
+.field{margin-bottom:12px;}
+.field label{display:block; font-size:11.5px; color:var(--muted); margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px;}
+.step-label{font-family:var(--font-mono); font-size:10.5px; color:var(--accent); letter-spacing:.8px; margin-bottom:6px; display:flex; align-items:center; gap:6px;}
+.step-label::before{content:''; width:14px; height:1px; background:var(--accent);}
+.field .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+input[type=text],input[type=number],select,textarea{
+  width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--paper);
+  border-radius:var(--radius); padding:8px 9px; font-size:13px; font-family:var(--font-mono);
+}
+textarea{font-family:var(--font-mono); resize:vertical; min-height:120px; line-height:1.5;}
+select{font-family:var(--font-body);}
+.seg{display:flex; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+.seg button{flex:1; background:var(--panel-2); border:none; color:var(--muted); padding:8px 6px; font-size:12.5px; font-weight:600;}
+.seg button.active{background:var(--accent); color:#1A1500;}
+.btn{
+  border:1px solid var(--line); background:var(--panel-2); color:var(--paper);
+  border-radius:var(--radius); padding:9px 12px; font-size:12.5px; font-weight:600; width:100%;
+  margin-bottom:8px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+}
+.btn:hover{border-color:var(--accent);}
+.btn-primary{background:var(--accent); color:#1A1500; border-color:var(--accent);}
+.btn-row{display:flex; gap:8px;}
+.btn-row .btn{margin-bottom:8px;}
+.btn-ghost{background:transparent;}
+.chip-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+.chip{
+  font-size:11px; padding:5px 9px; border-radius:20px; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--muted); font-weight:600;
+}
+.chip:hover{color:var(--paper); border-color:var(--accent); cursor:pointer;}
+hr.div{border:none; border-top:1px dashed var(--line); margin:14px 0;}
+
+/* ============ INFO TOGGLE ============ */
+.info-btn{
+  display:inline-flex; align-items:center; justify-content:center; width:16px;height:16px;
+  border-radius:50%; border:1px solid var(--muted); color:var(--muted); font-size:10px;
+  margin-left:6px; cursor:pointer; user-select:none; flex:none; background:transparent;
+}
+.info-box{
+  display:none; font-size:12px; color:var(--muted); background:var(--panel-2);
+  border-left:2px solid var(--accent); padding:9px 11px; margin-top:8px; border-radius:var(--radius); line-height:1.55;
+}
+.info-box.open{display:block;}
+
+/* ============ BADGES ============ */
+.badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:4px 9px; border-radius:20px;}
+.badge.good{background:color-mix(in srgb, var(--good) 18%, transparent); color:var(--good);}
+.badge.warn{background:color-mix(in srgb, var(--warn) 18%, transparent); color:var(--warn);}
+.badge.bad{background:color-mix(in srgb, var(--bad) 18%, transparent); color:var(--bad);}
+
+/* ============ TABLE ============ */
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+th,td{padding:7px 8px; border-bottom:1px solid var(--line); text-align:left;}
+th{color:var(--muted); font-weight:600; text-transform:uppercase; font-size:10.5px; letter-spacing:.4px;}
+tr.highlight td{background:color-mix(in srgb, var(--accent) 12%, transparent); font-weight:700;}
+.scroll-x{overflow-x:auto;}
+
+/* ============ TABS CONTENT ============ */
+.tabpanel{display:none;}
+.tabpanel.active{display:block; animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+.grid2{display:grid; grid-template-columns:1.3fr 1fr; gap:16px;}
+.grid2b{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media(max-width:760px){.grid2,.grid2b{grid-template-columns:1fr;}}
+
+/* ============ LEGEND / SVG WRAPPERS ============ */
+.chart-wrap svg{width:100%; height:auto; display:block;}
+.legend{display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:11px;}
+.legend .sw{display:inline-flex; align-items:center; gap:5px;}
+.legend .sw .box{width:10px;height:10px;border-radius:2px;}
+
+/* ============ GAUGE ============ */
+.gauge-readout{text-align:center; margin-top:-18px;}
+.gauge-readout .big{font-family:var(--font-mono); font-size:34px; font-weight:700;}
+.gauge-readout .grade{font-size:12px; color:var(--muted); margin-top:2px;}
+
+/* ============ STEPPER ============ */
+.step{border-left:2px solid var(--line); padding:4px 0 14px 16px; position:relative; margin-left:4px;}
+.step::before{content:''; position:absolute; left:-5px; top:4px; width:9px; height:9px; border-radius:50%; background:var(--accent);}
+.step .step-title{font-weight:700; font-size:13px;}
+.step .step-body{font-size:12px; color:var(--muted); margin-top:3px;}
+
+/* ============ HEALTH SCORE ============ */
+.score-wrap{display:flex; align-items:center; gap:22px; flex-wrap:wrap;}
+.score-dial{width:140px; height:140px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex:none;
+  background:conic-gradient(var(--accent) calc(var(--pct,0)*1%), var(--panel-2) 0); position:relative;}
+.score-dial::before{content:''; position:absolute; width:108px; height:108px; border-radius:50%; background:var(--panel);}
+.score-dial .num{position:relative; z-index:1; font-family:var(--font-mono); font-size:32px; font-weight:700;}
+.bar-row{margin-bottom:10px;}
+.bar-row .bar-label{display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;}
+.bar-track{height:8px; background:var(--panel-2); border-radius:8px; overflow:hidden; border:1px solid var(--line);}
+.bar-fill{height:100%; border-radius:8px;}
+.reco-list{margin:0; padding-left:18px; font-size:13px; line-height:1.7;}
+.reco-list li{margin-bottom:4px;}
+
+/* ============ VERDICT BANNER ============ */
+.verdict-banner{
+  display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:var(--radius-lg);
+  border:1px solid var(--line); margin-bottom:16px; font-size:14.5px; line-height:1.6;
+}
+.verdict-banner .vicon{
+  width:40px;height:40px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+  font-size:18px; font-weight:700; font-family:var(--font-mono);
+}
+.verdict-banner.good{border-color:var(--good);} .verdict-banner.good .vicon{background:color-mix(in srgb, var(--good) 20%, transparent); color:var(--good);}
+.verdict-banner.warn{border-color:var(--warn);} .verdict-banner.warn .vicon{background:color-mix(in srgb, var(--warn) 20%, transparent); color:var(--warn);}
+.verdict-banner.bad{border-color:var(--bad);} .verdict-banner.bad .vicon{background:color-mix(in srgb, var(--bad) 20%, transparent); color:var(--bad);}
+
+/* ============ QUADRANT GRID ============ */
+.quadrant-wrap{display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;}
+.quadrant-grid{display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:8px; width:280px; height:200px; flex:none;}
+.quadrant-cell{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel-2);
+  padding:10px; font-size:11.5px; color:var(--muted); position:relative; display:flex; flex-direction:column; justify-content:flex-end;
+}
+.quadrant-cell b{display:block; font-size:12.5px; color:var(--paper); margin-bottom:2px;}
+.quadrant-cell.active{border-width:2px; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 16%, transparent);}
+.quadrant-cell.active.good{border-color:var(--good); color:var(--good);}
+.quadrant-cell.active.warn{border-color:var(--warn); color:var(--warn);}
+.quadrant-cell.active.bad{border-color:var(--bad); color:var(--bad);}
+.quadrant-cell .pin{position:absolute; top:8px; right:8px; font-size:10px; font-weight:700; padding:2px 6px; border-radius:10px; background:currentColor; color:var(--ink);}
+
+
+/* ============ PPM PANEL ============ */
+.ppm-row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px;}
+.ppm-row .ppm-val{font-family:var(--font-mono); font-size:22px; font-weight:700;}
+.trend-chip{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; padding:4px 9px; border-radius:20px; background:var(--panel-2); border:1px solid var(--line); margin-top:8px;}
+
+/* ============ MISC ============ */
+.empty-msg{padding:30px; text-align:center; color:var(--muted); font-size:13px;}
+.footer{padding:30px 22px; text-align:center; font-size:11.5px; color:var(--muted); border-top:1px solid var(--line); margin-top:10px;}
+.alert{padding:10px 12px; border-radius:var(--radius); font-size:12.5px; margin-bottom:12px; border:1px solid;}
+.alert.err{background:color-mix(in srgb, var(--bad) 12%, transparent); border-color:var(--bad); color:var(--bad);}
+.alert.warn{background:color-mix(in srgb, var(--warn) 12%, transparent); border-color:var(--warn); color:var(--warn);}
+.alert.ok{background:color-mix(in srgb, var(--good) 12%, transparent); border-color:var(--good); color:var(--good);}
+.feature-tag{font-size:11px; padding:5px 9px; border-radius:20px; border:1px solid var(--accent);
+  background:color-mix(in srgb, var(--accent) 12%, transparent); color:var(--accent); font-weight:600; display:inline-block;}
+
+@media print{
+  .topbar,.sidebar,.statusbar,.tabs,.btn,.theme-toggle,.tab-btn,.info-btn{display:none !important;}
+  .layout{grid-template-columns:1fr;}
+  .tabpanel{display:block !important;}
+  body{background:#fff; color:#000;}
+  .panel{border:1px solid #999; box-shadow:none;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>GAUGE ROOM</h1>
+      <div class="sub">공정능력 · SPC 콘솔</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="cap">공정능력분석</button>
+    <button class="tab-btn" data-tab="spc">통계적공정관리</button>
+    <button class="tab-btn" data-tab="health">종합진단</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="theme-toggle" id="themeToggle">☾ 다크</button>
+</div>
+
+<div class="statusbar" id="statusBar"></div>
+
+<div class="layout">
+  <aside class="sidebar">
+
+    <div class="step-label">STEP 1 · 데이터 유형 선택</div>
+    <div class="field">
+      <div class="seg" id="dataTypeSeg">
+        <button class="active" data-val="continuous">계량형 (측정값)</button>
+        <button data-val="count">계수형 (불량·결함)</button>
+      </div>
+    </div>
+
+    <!-- ===== continuous controls ===== -->
+    <div id="continuousControls">
+      <div class="step-label">STEP 2 · 예제 불러오기 또는 직접 입력</div>
+      <div class="chip-row">
+        <span class="chip" data-preset="pvc">PVC 점도 예제</span>
+        <span class="chip" data-preset="thickness">반도체 두께 예제</span>
+        <span class="chip" data-preset="skewed">비대칭 분포 예제</span>
+      </div>
+      <div class="field">
+        <label>부분군,측정값 (줄바꿈으로 구분)</label>
+        <textarea id="contInput" spellcheck="false" placeholder="예시)&#10;G1,3576.27&#10;G1,3504.17&#10;G2,3630.12&#10;G2,3514.52&#10;...&#10;(부분군명,측정값 — 줄바꿈으로 구분)"></textarea>
+        <input type="file" id="contCsvFile" accept=".csv,.txt" style="display:none;">
+        <button class="btn btn-ghost" id="contCsvBtn" style="margin-top:6px;">📁 CSV 파일 업로드</button>
+        <div class="panel-desc" style="margin-top:4px;">CSV 형식: <b>부분군명,측정값</b> (예: G1,10.25) · 컬럼명이 있는 첫 행은 자동으로 무시됩니다</div>
+      </div>
+      <div class="field row2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label>USL (규격상한)</label><input type="number" id="uslInput" value="4000"></div>
+        <div><label>LSL (규격하한)</label><input type="number" id="lslInput" value="3000"></div>
+      </div>
+
+      <hr class="div">
+      <div class="panel-desc" style="margin-bottom:8px;">샘플 데이터 생성</div>
+      <div class="field row2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label>목표값</label><input type="number" id="genTarget" value="50"></div>
+        <div><label>허용오차(±)</label><input type="number" id="genTol" value="5"></div>
+        <div><label>부분군 수</label><input type="number" id="genNumSg" value="20"></div>
+        <div><label>부분군 크기</label><input type="number" id="genSgSize" value="5"></div>
+        <div><label>표준편차</label><input type="number" id="genStd" value="1.2" step="0.1"></div>
+        <div><label>평균이동(±)</label><input type="number" id="genShift" value="0.6" step="0.1"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:10px;">
+        <input type="checkbox" id="genSkew" style="width:auto;"> 비대칭(왜곡) 분포로 생성 (Box-Cox 데모용)
+      </label>
+      <button class="btn" id="genBtn">⚙ 샘플 생성</button>
+    </div>
+
+    <!-- ===== count controls ===== -->
+    <div id="countControls" class="hidden">
+      <div class="step-label">STEP 2 · 예제 불러오기 또는 직접 입력</div>
+      <div class="field">
+        <label>계수형 하위유형</label>
+        <div class="seg" id="countTypeSeg">
+          <button class="active" data-val="NP">NP (불량개수)</button>
+          <button data-val="P">P (불량률)</button>
+        </div>
+        <div class="seg" id="countTypeSeg2" style="margin-top:6px;">
+          <button data-val="C">C (결점수)</button>
+          <button data-val="U">U (단위결점수)</button>
+        </div>
+      </div>
+      <div class="chip-row">
+        <span class="chip" data-preset="led">LED 전구 불량 예제 (NP)</span>
+        <span class="chip" data-preset="charger">충전기 결함 예제 (C)</span>
+        <span class="chip" data-preset="pchart">표본크기 변동 예제 (P)</span>
+        <span class="chip" data-preset="uchart">표본크기 변동 예제 (U)</span>
+      </div>
+      <div class="field">
+        <label>부분군,표본크기,불량(결함)수</label>
+        <textarea id="countInput" spellcheck="false" placeholder="예시)&#10;Lot1,300,8&#10;Lot2,300,6&#10;Lot3,300,11&#10;...&#10;(부분군명,표본크기,불량·결함수)"></textarea>
+        <input type="file" id="countCsvFile" accept=".csv,.txt" style="display:none;">
+        <button class="btn btn-ghost" id="countCsvBtn" style="margin-top:6px;">📁 CSV 파일 업로드</button>
+        <div class="panel-desc" style="margin-top:4px;">CSV 형식: <b>부분군명,표본크기,불량(결함)수</b> (예: Lot1,300,8) · 컬럼명이 있는 첫 행은 자동으로 무시됩니다</div>
+      </div>
+
+      <hr class="div">
+      <div class="panel-desc" style="margin-bottom:8px;">샘플 데이터 생성</div>
+      <div class="field row2" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><label>부분군 수</label><input type="number" id="cGenNumSg" value="20"></div>
+        <div><label>표본크기</label><input type="number" id="cGenSize" value="300"></div>
+        <div><label>불량/결함률 p</label><input type="number" id="cGenP" value="0.02" step="0.005"></div>
+        <div><label>표본크기 변동</label><input type="number" id="cGenVar" value="0"></div>
+      </div>
+      <button class="btn" id="cGenBtn">⚙ 샘플 생성</button>
+    </div>
+
+    <div class="step-label">STEP 3 · 분석 실행</div>
+    <button class="btn btn-primary" id="runBtn">▶ 분석 실행</button>
+    <button class="btn btn-ghost" id="resetBtn">초기화</button>
+    <div class="panel-desc" id="dataSummary" style="margin-top:6px;"></div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ============ TAB 1 : 공정능력분석 ============ -->
+    <section class="tabpanel active" id="tab-cap"></section>
+
+    <!-- ============ TAB 2 : 통계적공정관리 ============ -->
+    <section class="tabpanel" id="tab-spc"></section>
+
+    <!-- ============ TAB 3 : 종합진단 ============ -->
+    <section class="tabpanel" id="tab-health"></section>
+
+  </main>
+</div>
+
+<div class="footer">
+  <div style="max-width:680px;margin:0 auto 14px;text-align:left;font-size:12.5px;line-height:1.7;color:var(--muted);">
+    본 웹앱은 강의록의 <b>공정능력분석</b>과 <b>통계적공정관리</b> 절차를 기반으로, 사용자가 입력한 제조 데이터를 이용해 정규성 검정 → 공정능력지수 계산 → 관리도 작성 → Nelson's Rules 이상판정 → 종합 공정진단을 수행합니다.
+    데이터가 변경되면 직접 입력, CSV 업로드, 샘플 생성 중 어떤 방법으로든 즉시 새로운 공정능력분석과 SPC 분석을 다시 실행할 수 있습니다.
+  </div>
+  GAUGE ROOM · 공정능력분석(Cp/Cpk/Pp/Ppk) &amp; 통계적공정관리(Xbar-R/S, I-MR, NP/P/C/U, Nelson's Rules) 강의자료 기반 콘솔<br>
+  Hongik University · Data Science 핵심 — 모든 통계 계산은 브라우저에서 직접 수행됩니다 (서버 전송 없음)
+</div>
+
+<script>
+/* =====================================================================
+   1. CORE MATH UTILITIES
+   ===================================================================== */
+function mean(arr){ return arr.reduce((s,v)=>s+v,0)/arr.length; }
+function variance(arr,ddof=1){ const m=mean(arr); return arr.reduce((s,v)=>s+(v-m)*(v-m),0)/(arr.length-ddof); }
+function stdev(arr,ddof=1){ return Math.sqrt(variance(arr,ddof)); }
+function modeOf(arr){
+  const c={}; arr.forEach(v=>c[v]=(c[v]||0)+1);
+  let best=arr[0],bc=0; for(const k in c){ if(c[k]>bc){bc=c[k]; best=Number(k);} } return best;
+}
+function fmt(v,d=3){
+  if(v===null||v===undefined||Number.isNaN(v)) return '—';
+  if(!isFinite(v)) return v>0?'∞':'-∞';
+  return Number(v).toFixed(d);
+}
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* Lanczos gamma function */
+function gammaFn(x){
+  const g=7;
+  const p=[0.99999999999980993,676.5203681218851,-1259.1392167224028,
+    771.32342877765313,-176.61502916214059,12.507343278686905,
+    -0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x<0.5) return Math.PI/(Math.sin(Math.PI*x)*gammaFn(1-x));
+  x-=1; let a=p[0]; const t=x+g+0.5;
+  for(let i=1;i<g+2;i++) a+=p[i]/(x+i);
+  return Math.sqrt(2*Math.PI)*Math.pow(t,x+0.5)*Math.exp(-t)*a;
+}
+function c4(n){ if(n<2) return NaN; return Math.sqrt(2/(n-1))*gammaFn(n/2)/gammaFn((n-1)/2); }
+
+const D_TABLE={
+  2:[1.128,0.8525,0.954],3:[1.693,0.8884,1.588],4:[2.059,0.8798,1.978],
+  5:[2.326,0.8641,2.257],6:[2.534,0.848,2.472],7:[2.704,0.8332,2.645],
+  8:[2.847,0.8198,2.791],9:[2.97,0.8078,2.915],10:[3.078,0.7971,3.024],
+  11:[3.173,0.7873,3.121],12:[3.258,0.7785,3.207],13:[3.336,0.7704,3.285],
+  14:[3.407,0.763,3.356],15:[3.472,0.7562,3.422],16:[3.532,0.7499,3.482],
+  17:[3.588,0.7441,3.538],18:[3.64,0.7386,3.591],19:[3.689,0.7335,3.64],
+  20:[3.735,0.7287,3.686],21:[3.778,0.7242,3.73],22:[3.819,0.7199,3.771],
+  23:[3.858,0.7159,3.811],24:[3.895,0.7121,3.847],25:[3.931,0.7084,3.883]
+};
+function d2(n){ n=Math.round(n); if(n in D_TABLE) return D_TABLE[n][0]; if(n<2) return NaN;
+  return 3.4873+0.0250141*n-0.00009823*n*n; }
+function d3stat(n){ n=Math.round(n); if(n in D_TABLE) return D_TABLE[n][1]; if(n<2) return NaN;
+  return 0.80818-0.051871*n+0.00005098*n*n-0.00000019*n*n*n; }
+function d4stat(n){ n=Math.round(n); if(n in D_TABLE) return D_TABLE[n][2]; if(n<2) return NaN;
+  return 2.88606+0.051313*n-0.00049243*n*n+0.00000188*n*n*n; }
+function A2c(n){ return 3/(d2(n)*Math.sqrt(n)); }
+function A3c(n){ return 3/(c4(n)*Math.sqrt(n)); }
+function D3c(n){ return Math.max(0,1-3*d3stat(n)/d2(n)); }
+function D4c(n){ return 1+3*d3stat(n)/d2(n); }
+function B3c(n){ return Math.max(0,1-3*Math.sqrt(1-c4(n)*c4(n))/c4(n)); }
+function B4c(n){ return 1+3*Math.sqrt(1-c4(n)*c4(n))/c4(n); }
+
+/* Normal distribution helpers */
+function normalQuantile(p){
+  if(p<=0) return -Infinity; if(p>=1) return Infinity;
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,
+    1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,
+    6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,
+    -2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const plow=0.02425; let q,r;
+  if(p<plow){ q=Math.sqrt(-2*Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if(p>1-plow){ q=Math.sqrt(-2*Math.log(1-p));
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  q=p-0.5; r=q*q;
+  return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+function erf(x){
+  const sign=x<0?-1:1; x=Math.abs(x);
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const t=1/(1+p*x);
+  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return sign*y;
+}
+function normalCDF(z){ return 0.5*(1+erf(z/Math.SQRT2)); }
+function normalPDF(x,mu,sigma){ return Math.exp(-((x-mu)*(x-mu))/(2*sigma*sigma))/(sigma*Math.sqrt(2*Math.PI)); }
+function polyEval(c,x){ let r=c[0]; for(let i=1;i<c.length;i++) r+=c[i]*Math.pow(x,i); return r; }
+
+/* Shapiro-Wilk normality test (Royston 1995 / AS R94 approximation) */
+function shapiroWilk(xRaw){
+  const n=xRaw.length;
+  if(n<3) return {W:null,p:null};
+  const y=[...xRaw].sort((a,b)=>a-b);
+  const m=[]; for(let i=1;i<=n;i++) m.push(normalQuantile((i-0.375)/(n+0.25)));
+  const ssumm2=m.reduce((s,v)=>s+v*v,0);
+  const rsn=1/Math.sqrt(n);
+  const c1=[0,0.221157,-0.147981,-2.071190,4.434685,-2.706056];
+  const c2=[0,0.042981,-0.293762,-1.752461,5.682633,-3.582633];
+  let a=new Array(n).fill(0);
+  if(n===3){ a[0]=Math.sqrt(0.5); a[n-1]=-a[0]; a[1]=0; }
+  else if(n<=5){
+    const an=polyEval(c1,rsn)+m[n-1]/Math.sqrt(ssumm2);
+    a[n-1]=an; a[0]=-an;
+    const phi=(ssumm2-2*m[n-1]*m[n-1])/(1-2*an*an);
+    for(let i=1;i<n-1;i++) a[i]=m[i]/Math.sqrt(phi);
+  } else {
+    const an=polyEval(c1,rsn)+m[n-1]/Math.sqrt(ssumm2);
+    const an1=polyEval(c2,rsn)+m[n-2]/Math.sqrt(ssumm2);
+    a[n-1]=an; a[n-2]=an1; a[0]=-an; a[1]=-an1;
+    const phi=(ssumm2-2*m[n-1]*m[n-1]-2*m[n-2]*m[n-2])/(1-2*an*an-2*an1*an1);
+    for(let i=2;i<n-2;i++) a[i]=m[i]/Math.sqrt(phi);
+  }
+  const ybar=mean(y); let num=0,den=0;
+  for(let i=0;i<n;i++){ num+=a[i]*y[i]; den+=(y[i]-ybar)*(y[i]-ybar); }
+  const W=(num*num)/den;
+  let pw;
+  if(n===3){
+    const pi6=1.90985931710274, stqr=1.04719755119660;
+    const z=pi6*(Math.asin(Math.sqrt(Math.min(1,W)))-stqr);
+    pw=1-normalCDF(z);
+  } else {
+    let z;
+    if(n<=11){
+      const gamma=-2.273+0.459*n;
+      const yv=-Math.log(gamma-Math.log(1-W));
+      const mu=polyEval([0.5440,-0.39978,0.025054,-0.0006714],n);
+      const sigma=Math.exp(polyEval([1.3822,-0.77857,0.062767,-0.0020322],n));
+      z=(yv-mu)/sigma;
+    } else {
+      const logn=Math.log(n);
+      const yv=Math.log(1-W);
+      const mu=polyEval([-1.5861,-0.31082,-0.083751,0.0038915],logn);
+      const sigma=Math.exp(polyEval([-0.4803,-0.082676,0.0030302],logn));
+      z=(yv-mu)/sigma;
+    }
+    pw=1-normalCDF(z);
+  }
+  return {W, p:clamp(pw,0,1)};
+}
+
+/* Anderson-Darling normality test */
+function andersonDarling(xRaw){
+  const n=xRaw.length;
+  const m=mean(xRaw), s=stdev(xRaw,1);
+  const z=[...xRaw].map(v=>(v-m)/s).sort((a,b)=>a-b);
+  let S=0;
+  for(let i=0;i<n;i++){
+    const F1=normalCDF(z[i]), F2=normalCDF(z[n-1-i]);
+    S+=(2*(i+1)-1)*(Math.log(Math.max(F1,1e-300))+Math.log(Math.max(1-F2,1e-300)));
+  }
+  const A2v=-n-S/n;
+  const A2star=A2v*(1+0.75/n+2.25/(n*n));
+  let p;
+  if(A2star>=0.6) p=Math.exp(1.2937-5.709*A2star+0.0186*A2star*A2star);
+  else if(A2star>=0.34) p=Math.exp(0.9177-4.279*A2star-1.38*A2star*A2star);
+  else if(A2star>=0.2) p=1-Math.exp(-8.318+42.796*A2star-59.938*A2star*A2star);
+  else p=1-Math.exp(-13.436+101.14*A2star-223.73*A2star*A2star);
+  return {A2:A2star, p:clamp(p,0,1)};
+}
+
+/* Box-Cox transform + MLE lambda search (golden-section) */
+function boxcoxTransform(x,lambda){
+  if(Math.abs(lambda)<1e-8) return x.map(v=>Math.log(v));
+  return x.map(v=>(Math.pow(v,lambda)-1)/lambda);
+}
+function boxcoxLogLik(x,lambda,sumLogX){
+  const n=x.length; const y=boxcoxTransform(x,lambda); const yb=mean(y);
+  const ss=y.reduce((s,v)=>s+(v-yb)*(v-yb),0)/n;
+  return -0.5*n*Math.log(ss)+(lambda-1)*sumLogX;
+}
+function boxcoxOptimalLambda(x,lo=-10,hi=10){
+  const sumLogX=x.reduce((s,v)=>s+Math.log(v),0);
+  const f=(lam)=>boxcoxLogLik(x,lam,sumLogX);
+  const gr=(Math.sqrt(5)-1)/2;
+  let a=lo,b=hi,c=b-gr*(b-a),d=a+gr*(b-a);
+  for(let i=0;i<100;i++){
+    if(f(c)>f(d)){ b=d; } else { a=c; }
+    c=b-gr*(b-a); d=a+gr*(b-a);
+    if(Math.abs(b-a)<1e-7) break;
+  }
+  return (a+b)/2;
+}
+
+/* random generators */
+function randn(){
+  let u=0,v=0; while(u===0) u=Math.random(); while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function poissonSample(lambda){
+  if(lambda<=0) return 0;
+  const L=Math.exp(-lambda); let k=0,p=1;
+  do{ k++; p*=Math.random(); } while(p>L);
+  return k-1;
+}
+function quantileOf(sortedArr,q){
+  const pos=(sortedArr.length-1)*q, base=Math.floor(pos), rest=pos-base;
+  if(sortedArr[base+1]!==undefined) return sortedArr[base]+rest*(sortedArr[base+1]-sortedArr[base]);
+  return sortedArr[base];
+}
+
+/* =====================================================================
+   2. CAPABILITY ANALYSIS
+   ===================================================================== */
+function computeCapability(groups,USL,LSL){
+  const allVals=groups.flatMap(g=>g.values);
+  const xbar=mean(allVals);
+  const sigmaHat=stdev(allVals,1);
+  const sigmaOverall=sigmaHat/c4(allVals.length);
+
+  const usable=groups.filter(g=>g.values.length>=2);
+  let sigmaWithin, method;
+  if(usable.length>=1){
+    // 일반식(자유도 가중 합동표준편차): sp = sqrt( sum((ni-1)*si^2) / sum(ni-1) )
+    // 부분군 크기가 모두 같으면 sqrt(sum(si^2)/k)로 단순화되며 결과는 동일함(강의자료 6쪽 공식 참고)
+    const numerator=usable.reduce((s,g)=>{ const si=stdev(g.values,1); return s+(g.values.length-1)*si*si; },0);
+    const denom=usable.reduce((s,g)=>s+(g.values.length-1),0);
+    const sigmaP=Math.sqrt(numerator/denom);
+    const nTotal=usable.reduce((s,g)=>s+g.values.length,0);
+    const d=nTotal-usable.length+1; // d = sum(ni-1)+1
+    sigmaWithin=sigmaP/c4(d);
+    method = usable.length>=2 ? '합동표준편차(자유도 가중)' : '단일 부분군 표준편차';
+  } else {
+    const mr=[]; for(let i=1;i<allVals.length;i++) mr.push(Math.abs(allVals[i]-allVals[i-1]));
+    sigmaWithin=mean(mr)/d2(2);
+    method='이동범위(부분군 크기=1)';
+  }
+  const Cp=(USL-LSL)/(6*sigmaWithin);
+  const Cpk=Math.min((USL-xbar)/(3*sigmaWithin),(xbar-LSL)/(3*sigmaWithin));
+  const Pp=(USL-LSL)/(6*sigmaOverall);
+  const Ppk=Math.min((USL-xbar)/(3*sigmaOverall),(xbar-LSL)/(3*sigmaOverall));
+  return {xbar,sigmaHat,sigmaOverall,sigmaWithin,Cp,Cpk,Pp,Ppk,method,
+    n:allVals.length,k:groups.length};
+}
+function capabilityGrade(cp){
+  if(cp>=1.67) return {grade:0,label:'매우 충분',color:'var(--accent)'};
+  if(cp>=1.33) return {grade:1,label:'충분',color:'var(--good)'};
+  if(cp>=1.00) return {grade:2,label:'괜찮은 수준',color:'var(--warn)'};
+  if(cp>=0.67) return {grade:3,label:'모자람',color:'var(--orange)'};
+  return {grade:4,label:'매우 부족',color:'var(--bad)'};
+}
+/* Cp/Cpk/Pp/Ppk 사이의 관계로부터 공정 문제의 성격(치우침/산포/장기변동)을 자동 해석 */
+function capabilityInterpretation(cap){
+  const lines=[];
+  const gapCenter=cap.Cp-cap.Cpk;
+  if(cap.Cp>=1.33 && cap.Cpk<1.0){
+    lines.push('Cp는 높지만 Cpk는 낮습니다 — 산포 자체는 작지만 공정 평균이 규격 중심에서 치우쳐 있습니다. 중심을 규격 중심으로 이동하면 능력이 바로 개선됩니다.');
+  } else if(gapCenter>0.15){
+    lines.push('Cp와 Cpk의 차이가 있습니다 — 산포보다 공정 중심의 치우침이 능력을 깎아먹는 주된 원인으로 보입니다.');
+  }
+  if(cap.Cp<1.0 && cap.Cpk<1.0){
+    lines.push('Cp와 Cpk가 모두 낮습니다 — 공정 산포 자체가 커서 규격을 만족시키기 어려운 상태입니다. 설비·원재료·작업방법 등 산포를 줄이는 개선이 필요합니다.');
+  }
+  const gapLongterm=cap.Cpk-cap.Ppk;
+  if(gapLongterm>0.15){
+    lines.push('Cpk보다 Ppk가 더 낮습니다 — 단기적으로는 양호하지만 장기적으로 군간변동(시간 경과, 로트 간 차이 등)이 크다는 의미입니다. 관리도로 시간에 따른 변화 원인을 추적하세요.');
+  }
+  if(cap.Cpk>=1.33) lines.push('Cpk가 1.33 이상으로, 일반적인 기준에서 공정능력이 충분한 수준입니다.');
+  else if(cap.Cpk<1.0) lines.push('Cpk가 1.00 미만으로, 현재 규격을 벗어나는 제품이 실제로 발생하고 있을 가능성이 높습니다.');
+  if(lines.length===0) lines.push('Cp ≈ Cpk ≈ Pp ≈ Ppk로 군내·군간 변동과 중심 치우침이 모두 비슷한 수준입니다.');
+  return lines;
+}
+
+/* ---- 현재 공정 상황 진단 (stability x capability verdict) ---- */
+function violationCount(nelson){
+  if(!nelson) return 0;
+  return new Set([1,2,3,4,5,6,7,8].flatMap(k=>nelson[k]||[])).size;
+}
+function totalViolationCount(nelson,nelsonSecondary){
+  return violationCount(nelson)+(nelsonSecondary?violationCount(nelsonSecondary):0);
+}
+function processVerdict(cap,nelson,nelsonSecondary,dataType){
+  const mainViol=violationCount(nelson);
+  const secViol=nelsonSecondary?violationCount(nelsonSecondary):0;
+  const violCount=mainViol+secViol;
+  const stable=violCount===0;
+  const spreadNote=secViol>0 ? ` (이 중 ${secViol}건은 보조 관리도에서 감지된 산포 이상)` : '';
+  if(dataType!=='continuous' || !cap){
+    return stable
+      ? {level:'good',quadrant:null,stable,capable:null,
+         text:'공정이 관리상태(안정)입니다. 관리도에서 이상신호가 감지되지 않았습니다.'}
+      : {level:'bad',quadrant:null,stable,capable:null,
+         text:`공정이 불안정합니다. 관리도에서 ${violCount}개 시점의 이상신호가 감지되었습니다${spreadNote} — 이상원인 조사가 우선입니다.`};
+  }
+  const capable=cap.Cpk>=1.33;
+  if(stable && capable) return {level:'good',quadrant:'good',stable,capable,
+    text:'공정이 안정적으로 관리되고 있으며 능력도 충분합니다. 현재 수준을 유지하면서 비용 효율을 점검하세요.'};
+  if(stable && !capable) return {level:'warn',quadrant:'lowcap',stable,capable,
+    text:'공정은 안정적(관리상태)이지만 능력(Cpk)이 부족합니다. 이상원인은 없는 만성적 문제이므로 산포 감소·중심 이동 같은 근본적 개선이 필요합니다.'};
+  if(!stable && capable) return {level:'warn',quadrant:'unstable',stable,capable,
+    text:`공정 능력 자체는 충분하지만 현재 불안정합니다${spreadNote}. 이상원인이 해소되지 않으면 능력이 충분해도 언제든 불량이 발생할 수 있습니다.`};
+  return {level:'bad',quadrant:'crisis',stable,capable,
+    text:`공정이 불안정하고 능력도 부족합니다${spreadNote}. 이상원인 조사와 근본적 개선이 동시에 필요한 위험한 상태입니다.`};
+}
+/* 이론적 부적합률(PPM): 정규분포 가정 하에 규격을 벗어날 확률 추정 */
+function estimateDefectRate(cap,USL,LSL){
+  const belowA=normalCDF((LSL-cap.xbar)/cap.sigmaOverall);
+  const aboveA=1-normalCDF((USL-cap.xbar)/cap.sigmaOverall);
+  const belowP=normalCDF((LSL-cap.xbar)/cap.sigmaWithin);
+  const aboveP=1-normalCDF((USL-cap.xbar)/cap.sigmaWithin);
+  return {
+    actualRate:clamp(belowA+aboveA,0,1),
+    potentialRate:clamp(belowP+aboveP,0,1)
+  };
+}
+/* 최근 N개 지점의 선형추세 감지 (Nelson's Rules로는 못 잡는 완만한 추세 조기경보) */
+function recentTrend(points,n=8){
+  if(points.length<5) return null;
+  const recent=points.slice(-Math.min(n,points.length));
+  const m=recent.length;
+  const xs=recent.map((_,i)=>i), ys=recent.map(p=>p.point);
+  const xbar=mean(xs), ybar=mean(ys);
+  const num=xs.reduce((s,x,i)=>s+(x-xbar)*(ys[i]-ybar),0);
+  const den=xs.reduce((s,x)=>s+(x-xbar)*(x-xbar),0);
+  const slope=den===0?0:num/den;
+  const sigma=(recent[0].UCL-recent[0].LCL)/6;
+  const totalChange=slope*(m-1);
+  if(!isFinite(totalChange) || sigma===0) return {dir:'flat',m};
+  if(Math.abs(totalChange)<0.5*sigma) return {dir:'flat',m};
+  return {dir:totalChange>0?'up':'down',m,totalChange};
+}
+
+/* =====================================================================
+   3. CONTROL CHARTS
+   ===================================================================== */
+function computeXbarR(groups){
+  const sizes=groups.map(g=>g.values.length);
+  const n=modeOf(sizes);
+  const xbars=groups.map(g=>mean(g.values));
+  const ranges=groups.map(g=>Math.max(...g.values)-Math.min(...g.values));
+  const xbarbar=mean(xbars), rbar=mean(ranges);
+  const a2=A2c(n), d3v=D3c(n), d4v=D4c(n);
+  const xbarChart=groups.map((g,i)=>({label:g.label,point:xbars[i],CL:xbarbar,UCL:xbarbar+a2*rbar,LCL:xbarbar-a2*rbar}));
+  const rChart=groups.map((g,i)=>({label:g.label,point:ranges[i],CL:rbar,UCL:d4v*rbar,LCL:Math.max(0,d3v*rbar)}));
+  return {xbarChart,rChart,n,secondaryName:'R (범위)'};
+}
+function computeXbarS(groups){
+  const sizes=groups.map(g=>g.values.length);
+  const n=modeOf(sizes);
+  const xbars=groups.map(g=>mean(g.values));
+  const ss=groups.map(g=>stdev(g.values,1));
+  const xbarbar=mean(xbars), sbar=mean(ss);
+  const a3=A3c(n), b3=B3c(n), b4=B4c(n);
+  const xbarChart=groups.map((g,i)=>({label:g.label,point:xbars[i],CL:xbarbar,UCL:xbarbar+a3*sbar,LCL:xbarbar-a3*sbar}));
+  const sChart=groups.map((g,i)=>({label:g.label,point:ss[i],CL:sbar,UCL:b4*sbar,LCL:Math.max(0,b3*sbar)}));
+  return {xbarChart,sChart,n,secondaryName:'s (표준편차)'};
+}
+function computeIMR(values,labels,window=2){
+  const n=values.length;
+  const xbar=mean(values);
+  const mr=new Array(n).fill(null);
+  for(let i=window-1;i<n;i++){
+    const seg=values.slice(i-window+1,i+1);
+    mr[i]=Math.max(...seg)-Math.min(...seg);
+  }
+  const validMR=mr.filter(v=>v!==null);
+  const mrbar=mean(validMR);
+  const d2v=d2(window), d3v=D3c(window), d4v=D4c(window);
+  const iChart=values.map((v,i)=>({label:labels[i],point:v,CL:xbar,UCL:xbar+3*mrbar/d2v,LCL:xbar-3*mrbar/d2v}));
+  const mrChart=[];
+  for(let i=0;i<n;i++){ if(mr[i]!==null) mrChart.push({label:labels[i],point:mr[i],CL:mrbar,UCL:d4v*mrbar,LCL:Math.max(0,d3v*mrbar)}); }
+  return {iChart,mrChart,n:window,secondaryName:'MR (이동범위)'};
+}
+function computeNP(rows){
+  if(!rows.every(r=>r.n===rows[0].n)){
+    throw new Error('NP 관리도는 표본크기(n)가 모든 부분군에서 동일해야 합니다. 현재 표본크기가 '+[...new Set(rows.map(r=>r.n))].sort((a,b)=>a-b).join(', ')+'로 서로 다릅니다 — 표본크기가 변동하면 P 관리도(불량률)를 사용하세요.');
+  }
+  const npbar=mean(rows.map(r=>r.count));
+  const pbar=rows.reduce((s,r)=>s+r.count,0)/rows.reduce((s,r)=>s+r.n,0);
+  const sigma=Math.sqrt(npbar*(1-pbar));
+  const chart=rows.map(r=>({label:r.label,point:r.count,CL:npbar,UCL:npbar+3*sigma,LCL:Math.max(0,npbar-3*sigma)}));
+  return {mainChart:chart,name:'NP (불량개수)'};
+}
+function computeP(rows){
+  const pbar=rows.reduce((s,r)=>s+r.count,0)/rows.reduce((s,r)=>s+r.n,0);
+  const chart=rows.map(r=>{
+    const sigma=Math.sqrt(pbar*(1-pbar)/r.n);
+    return {label:r.label,point:r.count/r.n,CL:pbar,UCL:pbar+3*sigma,LCL:Math.max(0,pbar-3*sigma)};
+  });
+  return {mainChart:chart,name:'P (불량률)'};
+}
+function computeC(rows){
+  if(!rows.every(r=>r.n===rows[0].n)){
+    throw new Error('C 관리도는 검사단위(표본크기)가 모든 부분군에서 동일해야 합니다. 현재 표본크기가 '+[...new Set(rows.map(r=>r.n))].sort((a,b)=>a-b).join(', ')+'로 서로 다릅니다 — 표본크기가 변동하면 U 관리도(단위당 결점수)를 사용하세요.');
+  }
+  const cbar=mean(rows.map(r=>r.count));
+  const sigma=Math.sqrt(cbar);
+  const chart=rows.map(r=>({label:r.label,point:r.count,CL:cbar,UCL:cbar+3*sigma,LCL:Math.max(0,cbar-3*sigma)}));
+  return {mainChart:chart,name:'C (결점수)'};
+}
+function computeU(rows){
+  const ubar=rows.reduce((s,r)=>s+r.count,0)/rows.reduce((s,r)=>s+r.n,0);
+  const chart=rows.map(r=>{
+    const sigma=Math.sqrt(ubar/r.n);
+    return {label:r.label,point:r.count/r.n,CL:ubar,UCL:ubar+3*sigma,LCL:Math.max(0,ubar-3*sigma)};
+  });
+  return {mainChart:chart,name:'U (단위당 결점수)'};
+}
+
+/* Nelson's 8 rules. Takes the chart's point objects directly ({point,CL,UCL,LCL} each),
+   so Rule 1 is always evaluated against each point's OWN limits (correct even when
+   sample size varies, e.g. P/U charts). Rules 2-8 are zone-based and require a constant
+   center line/sigma, so they are skipped (with a flag) when limits vary point-to-point. */
+function limitsVary(chartPoints){
+  const u0=chartPoints[0].UCL, l0=chartPoints[0].LCL;
+  return !chartPoints.every(p=>Math.abs(p.UCL-u0)<1e-9 && Math.abs(p.LCL-l0)<1e-9);
+}
+function nelsonRules(chartPoints){
+  const n=chartPoints.length;
+  const v={1:[],2:[],3:[],4:[],5:[],6:[],7:[],8:[]};
+  for(let i=0;i<n;i++) if(chartPoints[i].point>chartPoints[i].UCL || chartPoints[i].point<chartPoints[i].LCL) v[1].push(i);
+  v.varying=limitsVary(chartPoints);
+  if(v.varying) return v; // zone rules 2-8 are not well-defined when CL/sigma vary per point
+  const points=chartPoints.map(p=>p.point);
+  const CL=chartPoints[0].CL, UCL=chartPoints[0].UCL, LCL=chartPoints[0].LCL;
+  const sigma=(UCL-LCL)/6;
+  { let run=0,side=0;
+    for(let i=0;i<n;i++){
+      const s=points[i]>CL?1:(points[i]<CL?-1:0);
+      if(s!==0 && s===side) run++; else { run=s!==0?1:0; side=s; }
+      if(run>=9) for(let k=i-8;k<=i;k++) v[2].push(k);
+    } }
+  { let up=1,down=1;
+    for(let i=1;i<n;i++){
+      if(points[i]>points[i-1]){ up++; down=1; } else if(points[i]<points[i-1]){ down++; up=1; } else { up=1; down=1; }
+      if(up>=6) for(let k=i-5;k<=i;k++) v[3].push(k);
+      if(down>=6) for(let k=i-5;k<=i;k++) v[3].push(k);
+    } }
+  { let run=1;
+    for(let i=2;i<n;i++){
+      const d1=points[i]-points[i-1], d0=points[i-1]-points[i-2];
+      if(d1*d0<0) run++; else run=1;
+      if(run>=14) for(let k=i-13;k<=i;k++) v[4].push(k);
+    } }
+  for(let i=2;i<n;i++){
+    for(const sgn of [1,-1]){
+      let cnt=0;
+      for(let k=i-2;k<=i;k++){
+        if(sgn===1 && points[k]>CL+2*sigma) cnt++;
+        if(sgn===-1 && points[k]<CL-2*sigma) cnt++;
+      }
+      if(cnt>=2) for(let k=i-2;k<=i;k++) v[5].push(k);
+    } }
+  for(let i=4;i<n;i++){
+    for(const sgn of [1,-1]){
+      let cnt=0;
+      for(let k=i-4;k<=i;k++){
+        if(sgn===1 && points[k]>CL+sigma) cnt++;
+        if(sgn===-1 && points[k]<CL-sigma) cnt++;
+      }
+      if(cnt>=4) for(let k=i-4;k<=i;k++) v[6].push(k);
+    } }
+  { let run=0;
+    for(let i=0;i<n;i++){
+      if(Math.abs(points[i]-CL)<sigma) run++; else run=0;
+      if(run>=15) for(let k=i-14;k<=i;k++) v[7].push(k);
+    } }
+  { let run=0;
+    for(let i=0;i<n;i++){
+      if(Math.abs(points[i]-CL)>sigma) run++; else run=0;
+      if(run>=8) for(let k=i-7;k<=i;k++) v[8].push(k);
+    } }
+  for(const k of [1,2,3,4,5,6,7,8]) v[k]=[...new Set(v[k])].sort((a,b)=>a-b);
+  return v;
+}
+const NELSON_DESC={
+  1:'관리한계(±3σ)를 벗어난 점이 1개 이상 존재',
+  2:'중심선 한쪽으로 9개 이상 연속',
+  3:'6개 이상 연속으로 증가 또는 감소',
+  4:'14개 이상 연속으로 교대(지그재그)',
+  5:'3개 중 2개가 같은 쪽 2σ 밖',
+  6:'5개 중 4개가 같은 쪽 1σ 밖',
+  7:'15개 이상 연속으로 ±1σ 내부에 존재(층화 의심)',
+  8:'8개 이상 연속으로 ±1σ 외부에 존재(혼합 의심)'
+};
+
+/* =====================================================================
+   4. STATE + PARSING + GENERATORS
+   ===================================================================== */
+const state={
+  dataType:'continuous',
+  countType:'NP',
+  groups:[],          // [{label, values:[...]}]
+  countRows:[],        // [{label,n,count}]
+  USL:4000, LSL:3000,
+  cap:null, sw:null, ad:null, boxcox:null,
+  chartType:null, chartResult:null, nelson:null, nelsonSecondary:null, revisionSteps:null,
+  mrWindow:3,
+};
+
+function parseContinuousInput(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const map=new Map(), order=[];
+  for(const line of lines){
+    const parts=line.split(/[,\t]/).map(s=>s.trim());
+    if(parts.length<2) continue;
+    const val=parseFloat(parts[1]);
+    if(Number.isNaN(val)) continue;
+    const label=parts[0];
+    if(!map.has(label)){ map.set(label,[]); order.push(label); }
+    map.get(label).push(val);
+  }
+  return order.map(label=>({label,values:map.get(label)}));
+}
+function parseCountInput(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const rows=[];
+  for(const line of lines){
+    const parts=line.split(/[,\t]/).map(s=>s.trim());
+    if(parts.length<3) continue;
+    const n=parseFloat(parts[1]), c=parseFloat(parts[2]);
+    if(Number.isNaN(n)||Number.isNaN(c)) continue;
+    if(n<=0 || c<0) continue;
+    rows.push({label:parts[0],n,count:c});
+  }
+  return rows;
+}
+function groupsToText(groups){
+  return groups.flatMap(g=>g.values.map(v=>g.label+','+v.toFixed(3))).join('\n');
+}
+function rowsToText(rows){
+  return rows.map(r=>r.label+','+r.n+','+r.count).join('\n');
+}
+
+function generateContinuous({target,tolerance,numSg,sgSize,sgStd,meanShift,skew}){
+  const groups=[];
+  const useLognormal = skew && target>0;
+  const sigma = useLognormal ? clamp(sgStd/Math.max(1,Math.abs(target)),0.1,0.6) : 0;
+  const mu = useLognormal ? Math.log(target)-0.5*sigma*sigma : 0;
+  for(let i=0;i<numSg;i++){
+    const shift=(Math.random()*2-1)*meanShift;
+    const vals=[];
+    for(let j=0;j<sgSize;j++){
+      let v;
+      if(useLognormal) v=Math.exp(mu+sigma*randn())+shift;
+      else v=target+shift+sgStd*randn();
+      vals.push(v);
+    }
+    groups.push({label:'G'+(i+1),values:vals});
+  }
+  return groups;
+}
+function generateCount({type,numSg,sgSize,p,sizeVariation}){
+  const rows=[];
+  for(let i=0;i<numSg;i++){
+    const n=Math.max(1,Math.round(sgSize+(Math.random()*2-1)*sizeVariation));
+    let count=0;
+    if(type==='NP'||type==='P'){ for(let j=0;j<n;j++) if(Math.random()<p) count++; }
+    else { count=poissonSample(p*n); }
+    rows.push({label:'L'+(i+1),n,count});
+  }
+  return rows;
+}
+
+/* ---- presets ---- */
+const PRESETS={
+  pvc:{
+    text:['라인1,3576.27','라인1,3504.17','라인1,3440.11','라인1,3638.33','라인1,3661.94',
+      '라인2,3630.12','라인2,3514.52','라인2,3494.35','라인2,3719.84','라인2,3485.53',
+      '라인3,3576.27','라인3,3747.43','라인3,3962.93','라인3,3617.47','라인3,3499.43',
+      '라인4,3630.12','라인4,3666.15','라인4,3514.30','라인4,3450.17','라인4,3605.53',
+      '라인5,3355.69','라인5,3709.25','라인5,3273.57','라인5,3378.70','라인5,3390.29',
+      '라인6,3363.62','라인6,3317.28','라인6,3336.20','라인6,3475.50','라인6,3519.26'].join('\n'),
+    USL:4000, LSL:3000
+  },
+  thickness:null, // generated on demand
+  skewed:null
+};
+
+/* =====================================================================
+   5. SVG CHART RENDERING
+   ===================================================================== */
+function svgWrap(w,h,inner){ return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, monospace">${inner}</svg>`; }
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+const PALETTE=['#F4C338','#3FE0A5','#5B8CFF','#FF8A50','#C792EA','#2BD9C9','#FF5C66','#8FD14F'];
+
+function renderHistogram(groups,USL,LSL,cap){
+  const W=720,H=380,ml=46,mr=120,mt=20,mb=40;
+  const innerW=W-ml-mr, innerH=H-mt-mb;
+  const all=groups.flatMap(g=>g.values);
+  const lo=Math.min(...all,LSL), hi=Math.max(...all,USL);
+  const pad=(hi-lo)*0.06;
+  const xlo=lo-pad, xhi=hi+pad;
+  const nbins=14;
+  const binW=(xhi-xlo)/nbins;
+  const showByGroup=groups.length<=10;
+  const bins=Array.from({length:nbins},()=>({total:0,byGroup:{}}));
+  groups.forEach((g,gi)=>{
+    g.values.forEach(v=>{
+      let bi=Math.floor((v-xlo)/binW); bi=clamp(bi,0,nbins-1);
+      bins[bi].total++;
+      bins[bi].byGroup[gi]=(bins[bi].byGroup[gi]||0)+1;
+    });
+  });
+  const maxCount=Math.max(1,...bins.map(b=>b.total));
+  const xScale=v=>ml+(v-xlo)/(xhi-xlo)*innerW;
+  const yScale=c=>mt+innerH-(c/maxCount)*innerH;
+
+  let bars='';
+  const bw=innerW/nbins;
+  bins.forEach((b,i)=>{
+    const x=ml+i*bw;
+    let yCursor=mt+innerH;
+    if(showByGroup){
+      Object.keys(b.byGroup).forEach(gi=>{
+        const cnt=b.byGroup[gi];
+        const segH=(cnt/maxCount)*innerH;
+        yCursor-=segH;
+        bars+=`<rect x="${x+1}" y="${yCursor}" width="${bw-2}" height="${segH}" fill="${PALETTE[gi%PALETTE.length]}" opacity="0.85"/>`;
+      });
+    } else {
+      const segH=(b.total/maxCount)*innerH;
+      bars+=`<rect x="${x+1}" y="${mt+innerH-segH}" width="${bw-2}" height="${segH}" fill="var(--accent)" opacity="0.85"/>`;
+    }
+  });
+  // normal curve overlay
+  const mu=cap.xbar, sigma=cap.sigmaOverall;
+  let path='';
+  for(let i=0;i<=80;i++){
+    const xv=xlo+(xhi-xlo)*i/80;
+    const dens=normalPDF(xv,mu,sigma)*all.length*binW;
+    const px=xScale(xv), py=yScale(dens);
+    path+=(i===0?'M':'L')+px.toFixed(1)+','+py.toFixed(1)+' ';
+  }
+  const uslX=xScale(USL), lslX=xScale(LSL);
+  let axisLabels='';
+  for(let i=0;i<=4;i++){
+    const xv=xlo+(xhi-xlo)*i/4;
+    axisLabels+=`<text x="${xScale(xv)}" y="${H-mb+18}" font-size="10" fill="var(--muted)" text-anchor="middle">${xv.toFixed(0)}</text>`;
+  }
+  let legend='';
+  if(showByGroup) groups.forEach((g,gi)=>{ legend+=`<span class="sw"><span class="box" style="background:${PALETTE[gi%PALETTE.length]}"></span>${esc(g.label)}</span>`; });
+
+  return `<div class="chart-wrap">${svgWrap(W,H,`
+    <rect x="0" y="0" width="${W}" height="${H}" fill="none"/>
+    ${bars}
+    <path d="${path}" fill="none" stroke="var(--paper)" stroke-width="1.6" opacity="0.6"/>
+    <line x1="${lslX}" y1="${mt}" x2="${lslX}" y2="${mt+innerH}" stroke="var(--bad)" stroke-dasharray="4,3" stroke-width="1.4"/>
+    <line x1="${uslX}" y1="${mt}" x2="${uslX}" y2="${mt+innerH}" stroke="var(--bad)" stroke-dasharray="4,3" stroke-width="1.4"/>
+    <text x="${lslX}" y="${mt-6}" font-size="10" fill="var(--bad)" text-anchor="middle">LSL</text>
+    <text x="${uslX}" y="${mt-6}" font-size="10" fill="var(--bad)" text-anchor="middle">USL</text>
+    <line x1="${ml}" y1="${mt+innerH}" x2="${ml+innerW}" y2="${mt+innerH}" stroke="var(--line)"/>
+    ${axisLabels}
+    <text x="${ml+innerW+12}" y="${mt+14}" font-size="11" fill="var(--paper)" font-weight="700">Cp =${fmt(cap.Cp,3)}</text>
+    <text x="${ml+innerW+12}" y="${mt+30}" font-size="11" fill="var(--paper)" font-weight="700">Cpk=${fmt(cap.Cpk,3)}</text>
+    <text x="${ml+innerW+12}" y="${mt+46}" font-size="11" fill="var(--paper)" font-weight="700">Pp =${fmt(cap.Pp,3)}</text>
+    <text x="${ml+innerW+12}" y="${mt+62}" font-size="11" fill="var(--paper)" font-weight="700">Ppk=${fmt(cap.Ppk,3)}</text>
+  `)}<div class="legend">${legend}</div></div>`;
+}
+
+function renderBoxplot(groups){
+  const W=720,H=70+groups.length*34,ml=80,mr=24,mt=14,mb=26;
+  const innerW=W-ml-mr, innerH=H-mt-mb;
+  const all=groups.flatMap(g=>g.values);
+  const lo=Math.min(...all), hi=Math.max(...all);
+  const pad=(hi-lo)*0.08;
+  const xlo=lo-pad, xhi=hi+pad;
+  const xScale=v=>ml+(v-xlo)/(xhi-xlo)*innerW;
+  const rowH=innerH/groups.length;
+  let rows='';
+  groups.forEach((g,gi)=>{
+    const sorted=[...g.values].sort((a,b)=>a-b);
+    const q1=quantileOf(sorted,0.25), med=quantileOf(sorted,0.5), q3=quantileOf(sorted,0.75);
+    const iqr=q3-q1, lowFence=q1-1.5*iqr, highFence=q3+1.5*iqr;
+    const whiskerLo=Math.min(...sorted.filter(v=>v>=lowFence));
+    const whiskerHi=Math.max(...sorted.filter(v=>v<=highFence));
+    const outliers=sorted.filter(v=>v<lowFence||v>highFence);
+    const y=mt+gi*rowH+rowH/2;
+    const boxH=Math.min(18,rowH*0.5);
+    const color=PALETTE[gi%PALETTE.length];
+    rows+=`<line x1="${xScale(whiskerLo)}" y1="${y}" x2="${xScale(q1)}" y2="${y}" stroke="${color}" stroke-width="1.3"/>`;
+    rows+=`<line x1="${xScale(q3)}" y1="${y}" x2="${xScale(whiskerHi)}" y2="${y}" stroke="${color}" stroke-width="1.3"/>`;
+    rows+=`<rect x="${xScale(q1)}" y="${y-boxH/2}" width="${Math.max(1,xScale(q3)-xScale(q1))}" height="${boxH}" fill="${color}" opacity="0.28" stroke="${color}"/>`;
+    rows+=`<line x1="${xScale(med)}" y1="${y-boxH/2}" x2="${xScale(med)}" y2="${y+boxH/2}" stroke="${color}" stroke-width="2"/>`;
+    outliers.forEach(o=>{ rows+=`<circle cx="${xScale(o)}" cy="${y}" r="2.4" fill="none" stroke="${color}"/>`; });
+    rows+=`<text x="${ml-8}" y="${y+4}" font-size="11" fill="var(--muted)" text-anchor="end">${esc(g.label)}</text>`;
+  });
+  let axisLabels='';
+  for(let i=0;i<=4;i++){
+    const xv=xlo+(xhi-xlo)*i/4;
+    axisLabels+=`<text x="${xScale(xv)}" y="${H-mb+16}" font-size="10" fill="var(--muted)" text-anchor="middle">${xv.toFixed(0)}</text>`;
+  }
+  return `<div class="chart-wrap">${svgWrap(W,H,`${rows}<line x1="${ml}" y1="${H-mb}" x2="${ml+innerW}" y2="${H-mb}" stroke="var(--line)"/>${axisLabels}`)}</div>`;
+}
+
+function renderQQ(values){
+  const n=values.length;
+  const m=mean(values), s=stdev(values,1);
+  const z=[...values].map(v=>(v-m)/s).sort((a,b)=>a-b);
+  const theo=[]; for(let i=1;i<=n;i++) theo.push(normalQuantile((i-0.375)/(n+0.25)));
+  const W=360,H=360,ml=42,mr=14,mt=14,mb=34;
+  const innerW=W-ml-mr, innerH=H-mt-mb;
+  const lo=Math.min(...theo,...z)*1.15, hi=Math.max(...theo,...z)*1.15;
+  const sc=v=>ml+(v-lo)/(hi-lo)*innerW;
+  const scY=v=>mt+innerH-(v-lo)/(hi-lo)*innerH;
+  let pts=''; for(let i=0;i<n;i++) pts+=`<circle cx="${sc(theo[i])}" cy="${scY(z[i])}" r="2.6" fill="var(--accent)" opacity="0.85"/>`;
+  let axisX='',axisY='';
+  for(let i=-1;i<=1;i++){ const v=i*Math.round(hi); axisX+=`<text x="${sc(v)}" y="${H-mb+16}" font-size="10" fill="var(--muted)" text-anchor="middle">${v}</text>`; axisY+=`<text x="${ml-8}" y="${scY(v)+3}" font-size="10" fill="var(--muted)" text-anchor="end">${v}</text>`; }
+  return `<div class="chart-wrap">${svgWrap(W,H,`
+    <line x1="${sc(lo)}" y1="${scY(lo)}" x2="${sc(hi)}" y2="${scY(hi)}" stroke="var(--bad)" stroke-width="1.4"/>
+    ${pts}
+    <line x1="${ml}" y1="${mt+innerH}" x2="${ml+innerW}" y2="${mt+innerH}" stroke="var(--line)"/>
+    <line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+innerH}" stroke="var(--line)"/>
+    ${axisX}${axisY}
+    <text x="${W/2}" y="${H-4}" font-size="10" fill="var(--muted)" text-anchor="middle">이론적 분위수</text>
+  `)}</div>`;
+}
+
+function renderControlChart(points,name,violations){
+  const n=points.length;
+  const W=Math.max(560,n*42),H=240,ml=56,mr=70,mt=18,mb=34;
+  const innerW=W-ml-mr, innerH=H-mt-mb;
+  const varying=limitsVary(points);
+  const CL0=points[0].CL, UCL0=points[0].UCL, LCL0=points[0].LCL;
+  const vals=points.map(p=>p.point);
+  const allUCL=points.map(p=>p.UCL), allLCL=points.map(p=>p.LCL);
+  const lo=Math.min(...vals,...allLCL), hi=Math.max(...vals,...allUCL);
+  const pad=(hi-lo)*0.12||1;
+  const ylo=lo-pad, yhi=hi+pad;
+  const xScale=i=>ml+(i+0.5)/n*innerW;
+  const yScale=v=>mt+innerH-(v-ylo)/(yhi-ylo)*innerH;
+  const violSet=new Set([1,2,3,4,5,6,7,8].flatMap(k=>(violations||{})[k]||[]));
+  let lineP=''; points.forEach((p,i)=>{ lineP+=(i===0?'M':'L')+xScale(i).toFixed(1)+','+yScale(p.point).toFixed(1)+' '; });
+  let dots='',xlabels='';
+  points.forEach((p,i)=>{
+    const bad=violSet.has(i);
+    dots+=`<circle cx="${xScale(i)}" cy="${yScale(p.point)}" r="${bad?5:3.4}" fill="${bad?'var(--bad)':'var(--accent)'}" stroke="${bad?'#fff':'none'}" stroke-width="0.6"/>`;
+    if(n<=30 || i%Math.ceil(n/30)===0) xlabels+=`<text x="${xScale(i)}" y="${H-mb+16}" font-size="9.5" fill="var(--muted)" text-anchor="middle">${esc(String(p.label))}</text>`;
+  });
+
+  let limitLines, labelText;
+  if(varying){
+    let uclPath='',lclPath='',clPath='';
+    points.forEach((p,i)=>{
+      uclPath+=(i===0?'M':'L')+xScale(i).toFixed(1)+','+yScale(p.UCL).toFixed(1)+' ';
+      lclPath+=(i===0?'M':'L')+xScale(i).toFixed(1)+','+yScale(p.LCL).toFixed(1)+' ';
+      clPath+=(i===0?'M':'L')+xScale(i).toFixed(1)+','+yScale(p.CL).toFixed(1)+' ';
+    });
+    limitLines=`
+      <path d="${clPath}" fill="none" stroke="var(--good)" stroke-dasharray="2,3" stroke-width="1.3"/>
+      <path d="${uclPath}" fill="none" stroke="var(--bad)" stroke-dasharray="3,3" stroke-width="1.3"/>
+      <path d="${lclPath}" fill="none" stroke="var(--bad)" stroke-dasharray="3,3" stroke-width="1.3"/>`;
+    labelText=`<text x="${ml+innerW+8}" y="${mt+10}" font-size="10" fill="var(--bad)">UCL/LCL 변동</text>
+      <text x="${ml+innerW+8}" y="${mt+24}" font-size="9.5" fill="var(--muted)">(표본크기 상이)</text>`;
+  } else {
+    limitLines=`
+      <line x1="${ml}" y1="${yScale(CL0)}" x2="${ml+innerW}" y2="${yScale(CL0)}" stroke="var(--good)" stroke-dasharray="2,3" stroke-width="1.3"/>
+      <line x1="${ml}" y1="${yScale(UCL0)}" x2="${ml+innerW}" y2="${yScale(UCL0)}" stroke="var(--bad)" stroke-dasharray="3,3" stroke-width="1.3"/>
+      <line x1="${ml}" y1="${yScale(LCL0)}" x2="${ml+innerW}" y2="${yScale(LCL0)}" stroke="var(--bad)" stroke-dasharray="3,3" stroke-width="1.3"/>`;
+    labelText=`<text x="${ml+innerW+8}" y="${yScale(UCL0)+4}" font-size="10.5" fill="var(--bad)">UCL=${fmt(UCL0,3)}</text>
+      <text x="${ml+innerW+8}" y="${yScale(CL0)+4}" font-size="10.5" fill="var(--good)">CL=${fmt(CL0,3)}</text>
+      <text x="${ml+innerW+8}" y="${yScale(LCL0)+4}" font-size="10.5" fill="var(--bad)">LCL=${fmt(LCL0,3)}</text>`;
+  }
+
+  return `<div class="chart-wrap">${svgWrap(W,H,`
+    ${limitLines}
+    <path d="${lineP}" fill="none" stroke="var(--muted)" stroke-width="1.3"/>
+    ${dots}
+    ${labelText}
+    <text x="${ml-8}" y="${mt+10}" font-size="10" fill="var(--muted)" text-anchor="end">${esc(name)}</text>
+    ${xlabels}
+  `)}</div>`;
+}
+
+function gaugeArc(cx,cy,r,deg1,deg2){
+  const p1={x:cx+r*Math.cos(deg1*Math.PI/180),y:cy-r*Math.sin(deg1*Math.PI/180)};
+  const p2={x:cx+r*Math.cos(deg2*Math.PI/180),y:cy-r*Math.sin(deg2*Math.PI/180)};
+  return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 0 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+}
+function renderGauge(cpk){
+  const W=300,H=180,cx=150,cy=158,r=110;
+  const bands=[[0,0.67,'var(--bad)'],[0.67,1.00,'var(--orange)'],[1.00,1.33,'var(--warn)'],[1.33,1.67,'var(--good)'],[1.67,2.0,'var(--accent)']];
+  const gmax=2.0;
+  const angleOf=v=>180-180*clamp(v,0,gmax)/gmax;
+  let arcs=''; bands.forEach(([lo,hi,col])=>{ arcs+=`<path d="${gaugeArc(cx,cy,r,angleOf(lo),angleOf(hi))}" stroke="${col}" stroke-width="16" fill="none" opacity="0.92"/>`; });
+  const val=isFinite(cpk)?cpk:gmax;
+  const ang=angleOf(val);
+  const needleLen=r-20;
+  const nx=cx+needleLen*Math.cos(ang*Math.PI/180), ny=cy-needleLen*Math.sin(ang*Math.PI/180);
+  let ticks='';
+  [0,0.67,1.00,1.33,1.67,2.0].forEach(t=>{
+    const a=angleOf(t)*Math.PI/180;
+    const x1=cx+(r+10)*Math.cos(a), y1=cy-(r+10)*Math.sin(a);
+    ticks+=`<text x="${x1}" y="${y1}" font-size="9.5" fill="var(--muted)" text-anchor="middle">${t.toFixed(2)}</text>`;
+  });
+  return svgWrap(W,H,`
+    ${arcs}
+    ${ticks}
+    <circle cx="${cx}" cy="${cy}" r="7" fill="var(--paper)"/>
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--paper)" stroke-width="3" stroke-linecap="round"/>
+  `);
+}
+
+/* =====================================================================
+   6. ITERATIVE REVISION
+   ===================================================================== */
+function flattenToIndividuals(groups){
+  const out=[];
+  groups.forEach(g=>{
+    g.values.forEach((v,idx)=>{
+      out.push({label: g.values.length>1 ? g.label+'-'+(idx+1) : g.label, value:v});
+    });
+  });
+  return out;
+}
+function computeMainChartFor(groups,chartType){
+  if(chartType==='I-MR'){
+    const indiv=flattenToIndividuals(groups);
+    if(indiv.length<4) throw new Error('I-MR 관리도를 그리려면 최소 4개 이상의 측정값이 필요합니다.');
+    const r=computeIMR(indiv.map(d=>d.value),indiv.map(d=>d.label),state.mrWindow||3);
+    return {mainChart:r.iChart,secondaryChart:r.mrChart,secondaryName:r.secondaryName,n:r.n};
+  }
+  const sizes=groups.map(g=>g.values.length);
+  const modeSize=modeOf(sizes);
+  if(modeSize<2) throw new Error((chartType)+' 관리도는 부분군 크기가 2 이상이어야 합니다. 현재 데이터의 부분군 크기는 1입니다 — I-MR 관리도를 사용하세요.');
+  if(!sizes.every(s=>s===sizes[0])){
+    throw new Error(chartType+' 관리도는 부분군 크기가 일정해야 합니다(관리한계 계산에 쓰이는 A2/A3/D3/D4 상수와 R-bar/s-bar 풀링이 모두 동일 n을 전제로 합니다). 현재 부분군 크기: '+[...new Set(sizes)].sort((a,b)=>a-b).join(', ')+'개로 혼재되어 있습니다. 부분군 크기를 맞추거나 I-MR 관리도를 사용하세요.');
+  }
+  if(chartType==='Xbar-S'){
+    const r=computeXbarS(groups);
+    return {mainChart:r.xbarChart,secondaryChart:r.sChart,secondaryName:r.secondaryName,n:r.n};
+  } else {
+    const r=computeXbarR(groups);
+    return {mainChart:r.xbarChart,secondaryChart:r.rChart,secondaryName:r.secondaryName,n:r.n};
+  }
+}
+function iterativeRevision(initialGroups,chartType){
+  const steps=[];
+  if(chartType==='I-MR'){
+    let indiv=flattenToIndividuals(initialGroups);
+    for(let iter=0; iter<8; iter++){
+      if(indiv.length<5) break;
+      const r=computeIMR(indiv.map(d=>d.value),indiv.map(d=>d.label),state.mrWindow||3);
+      const mainChart=r.iChart;
+      const oocIdx=mainChart.map((p,i)=>(p.point>p.UCL||p.point<p.LCL)?i:-1).filter(i=>i>=0);
+      steps.push({iter:iter+1,n:indiv.length,mainChart,secondaryChart:r.mrChart,secondaryName:r.secondaryName,
+        oocLabels:oocIdx.map(i=>mainChart[i].label)});
+      if(oocIdx.length===0 || indiv.length-oocIdx.length<4) break;
+      const dropIdx=new Set(oocIdx);
+      indiv=indiv.filter((_,i)=>!dropIdx.has(i));
+    }
+    return steps;
+  }
+  let current=initialGroups.slice();
+  for(let iter=0; iter<8; iter++){
+    if(current.length<2) break;
+    const res=computeMainChartFor(current,chartType);
+    const mainChart=res.mainChart;
+    const oocIdx=mainChart.map((p,i)=>(p.point>p.UCL||p.point<p.LCL)?i:-1).filter(i=>i>=0);
+    steps.push({iter:iter+1,n:current.length,mainChart,secondaryChart:res.secondaryChart,secondaryName:res.secondaryName,
+      oocLabels:oocIdx.map(i=>mainChart[i].label)});
+    if(oocIdx.length===0 || current.length-oocIdx.length<2) break;
+    const dropSet=new Set(oocIdx.map(i=>mainChart[i].label));
+    current=current.filter(g=>!dropSet.has(g.label));
+  }
+  return steps;
+}
+
+/* =====================================================================
+   7. RENDER ORCHESTRATION
+   ===================================================================== */
+function recommendChart(){
+  if(state.dataType==='count') return state.countType;
+  const sizes=state.groups.map(g=>g.values.length);
+  const n=modeOf(sizes);
+  if(n<=1) return 'I-MR';
+  if(n<10) return 'Xbar-R';
+  return 'Xbar-S';
+}
+
+function runAnalysis(){
+  try{
+    document.getElementById('dataSummary').innerHTML='';
+    if(state.dataType==='continuous'){
+      const groups=parseContinuousInput(document.getElementById('contInput').value).filter(g=>g.values.length>0);
+      if(groups.length===0){ alertBox('데이터를 입력하거나 샘플을 생성하세요. 형식: 부분군,측정값 (한 줄에 하나씩)'); return; }
+      const totalN=groups.reduce((s,g)=>s+g.values.length,0);
+      if(totalN<2){ alertBox('측정값이 너무 적습니다. 표준편차 계산을 위해 최소 2개 이상의 측정값이 필요합니다.'); return; }
+      const usl0=parseFloat(document.getElementById('uslInput').value);
+      const lsl0=parseFloat(document.getElementById('lslInput').value);
+      if(Number.isNaN(usl0)||Number.isNaN(lsl0)){ alertBox('USL/LSL 값을 숫자로 입력하세요.'); return; }
+      if(usl0<=lsl0){ alertBox('USL(규격상한)은 LSL(규격하한)보다 커야 합니다. 입력값을 확인하세요. (현재 USL='+usl0+', LSL='+lsl0+')'); return; }
+      state.groups=groups;
+      state.USL=usl0;
+      state.LSL=lsl0;
+      state.cap=computeCapability(groups,state.USL,state.LSL);
+      const allVals=groups.flatMap(g=>g.values);
+      state.sw=shapiroWilk(allVals);
+      state.ad=andersonDarling(allVals);
+      state.boxcox=null;
+      state.chartType=recommendChart();
+      const cr=computeMainChartFor(groups,state.chartType);
+      state.chartResult=cr;
+      state.nelson=nelsonRules(cr.mainChart);
+      state.nelsonSecondary=cr.secondaryChart ? nelsonRules(cr.secondaryChart) : null;
+      state.revisionSteps=null;
+      document.getElementById('dataSummary').textContent=`부분군 ${groups.length}개 · 표본 ${allVals.length}개 로드됨`;
+    } else {
+      const rows=parseCountInput(document.getElementById('countInput').value);
+      if(rows.length===0){ alertBox('데이터를 입력하거나 샘플을 생성하세요. 형식: 부분군,표본크기,불량(결함)수'); return; }
+      if(rows.length<2){ alertBox('관리도를 그리려면 최소 2개 이상의 부분군이 필요합니다. (현재 '+rows.length+'개)'); return; }
+      state.countRows=rows;
+      state.chartType=state.countType;
+      let cr;
+      if(state.countType==='NP') cr=computeNP(rows);
+      else if(state.countType==='P') cr=computeP(rows);
+      else if(state.countType==='C') cr=computeC(rows);
+      else cr=computeU(rows);
+      state.chartResult={mainChart:cr.mainChart,secondaryChart:null,secondaryName:null,n:null};
+      state.nelson=nelsonRules(cr.mainChart);
+      state.nelsonSecondary=null;
+      state.cap=null; state.sw=null; state.ad=null; state.revisionSteps=null;
+      document.getElementById('dataSummary').textContent=`부분군 ${rows.length}개 로드됨 (${cr.name})`;
+    }
+    saveLocal();
+    renderAll();
+  } catch(e){
+    console.error(e);
+    alertBox('분석 중 오류가 발생했습니다: '+e.message);
+  }
+}
+function alertBox(msg){
+  document.getElementById('tab-cap').innerHTML=renderIntroPanel()+`<div class="alert err">${esc(msg)}</div>`;
+  document.getElementById('tab-spc').innerHTML='';
+  document.getElementById('tab-health').innerHTML='';
+}
+
+function renderAll(){
+  renderStatusBar();
+  renderCapTab();
+  renderSpcTab();
+  renderHealthTab();
+}
+
+function renderStatusBar(){
+  const bar=document.getElementById('statusBar');
+  if(!state.cap && (!state.chartResult)){ bar.innerHTML='<span class="muted">데이터를 불러오면 현황이 표시됩니다.</span>'; return; }
+  let html='';
+  if(state.chartResult){
+    const verdict=processVerdict(state.cap,state.nelson,state.nelsonSecondary,state.dataType);
+    const vCls=verdict.level==='good'?'good':(verdict.level==='warn'?'warn':'bad');
+    const vLabel = verdict.quadrant==='good' ? '안정 · 능력충분'
+      : verdict.quadrant==='lowcap' ? '안정 · 능력부족'
+      : verdict.quadrant==='unstable' ? '불안정 · 능력충분'
+      : verdict.quadrant==='crisis' ? '불안정 · 능력부족'
+      : (verdict.stable ? '안정' : '불안정');
+    html+=`<div class="status-item"><span class="dot ${vCls}"></span>종합진단 <span class="status-val">${vLabel}</span></div>`;
+  }
+  if(state.cap){
+    const g=capabilityGrade(state.cap.Cpk);
+    const dotCls=g.grade<=1?'good':(g.grade===2?'warn':'bad');
+    html+=`<div class="status-item"><span class="dot ${dotCls}"></span>Cpk <span class="status-val">${fmt(state.cap.Cpk,3)}</span> <span class="muted">(${g.label})</span></div>`;
+  }
+  if(state.nelson){
+    const violCount=totalViolationCount(state.nelson,state.nelsonSecondary);
+    html+=`<div class="status-item"><span class="dot ${violCount===0?'good':'bad'}"></span>관리상태 <span class="status-val">${violCount===0?'정상':violCount+'건 이상(주+보조)'}</span></div>`;
+  }
+  if(state.chartType) html+=`<div class="status-item">관리도 <span class="status-val">${esc(state.chartType)}</span></div>`;
+  if(state.cap) html+=`<div class="status-item">표본 <span class="status-val">n=${state.cap.n}</span></div>`;
+  bar.innerHTML=html;
+}
+
+function renderIntroPanel(){
+  return `
+  <div class="panel" style="border-color:var(--accent);">
+    <h3 style="color:var(--accent);">GAUGE ROOM 소개</h3>
+    <div class="panel-desc" style="font-size:13px;color:var(--paper);line-height:1.65;margin-bottom:0;">
+      제조 공정 데이터를 입력하면 정규성 검정, 공정능력지수(Cp/Cpk/Pp/Ppk) 계산, 관리도 작성, Nelson's Rules 이상판정, 종합 공정진단을 한 번에 수행하는 SPC 대시보드입니다.
+      데이터가 변경되면 <b>직접 입력 · CSV 업로드 · 샘플 생성</b> 중 어떤 방법으로든 즉시 재분석할 수 있습니다.
+    </div>
+    <div class="chip-row" style="margin-top:10px;margin-bottom:0;">
+      <span class="feature-tag">CSV 업로드</span>
+      <span class="feature-tag">Cp/Cpk/Pp/Ppk</span>
+      <span class="feature-tag">Nelson's Rules 8종</span>
+      <span class="feature-tag">주·보조 관리도 동시 반영</span>
+      <span class="feature-tag">종합진단</span>
+      <span class="feature-tag">자동 개선 권고</span>
+    </div>
+  </div>`;
+}
+function renderCapTab(){
+  const el=document.getElementById('tab-cap');
+  if(state.dataType!=='continuous'){
+    el.innerHTML=renderIntroPanel()+`<div class="panel"><div class="empty-msg">공정능력지수(Cp/Cpk/Pp/Ppk)는 계량형(연속형) 데이터에서 계산합니다.<br>좌측에서 데이터 유형을 "계량형"으로 전환하세요.</div></div>`;
+    return;
+  }
+  if(!state.cap){ el.innerHTML=renderIntroPanel()+`<div class="panel"><div class="empty-msg">데이터를 불러오고 "분석 실행"을 누르세요.</div></div>`; return; }
+  const cap=state.cap, g=capabilityGrade(cap.Cpk);
+  const swPass=state.sw.p>=0.05, adPass=state.ad.p>=0.05;
+  const normalityOk = swPass || adPass;
+
+  let boxcoxSection='';
+  if(!normalityOk){
+    boxcoxSection=`
+      <div class="alert warn">정규성 검정을 만족하지 못했습니다. Box-Cox 변환을 적용하면 변환된 척도에서 공정능력지수를 재계산할 수 있습니다.</div>
+      <button class="btn btn-primary" id="boxcoxBtn" style="width:auto;padding:9px 16px;">Box-Cox 변환 적용</button>
+      <div id="boxcoxResult"></div>`;
+  } else if(state.boxcox){
+    const bc=state.boxcox;
+    boxcoxSection=`<div class="alert ok">Box-Cox 변환 (λ=${fmt(bc.lambda,4)}) 적용됨 — 변환 후 Shapiro-Wilk p=${fmt(bc.sw.p,4)}, 변환 척도 기준 Cp=${fmt(bc.Cp,4)}, Cpk=${fmt(bc.Cpk,4)}</div>`;
+  }
+
+  el.innerHTML=renderIntroPanel()+`
+    <div class="panel">
+      <h3>공정능력지수</h3>
+      <div class="panel-desc">규격 USL=${fmt(state.USL,2)} / LSL=${fmt(state.LSL,2)} · σ 추정 방식: ${esc(cap.method)}</div>
+      <div class="card-grid">
+        <div class="stat-card"><div class="label">Cp</div><div class="value">${fmt(cap.Cp,3)}</div><div class="note">잠재능력 · 군내변동만 고려</div></div>
+        <div class="stat-card"><div class="label">Cpk</div><div class="value" style="color:${g.color}">${fmt(cap.Cpk,3)}</div><div class="note">${g.label}</div></div>
+        <div class="stat-card"><div class="label">Pp</div><div class="value">${fmt(cap.Pp,3)}</div><div class="note">장기 산포 포함</div></div>
+        <div class="stat-card"><div class="label">Ppk</div><div class="value">${fmt(cap.Ppk,3)}</div><div class="note">장기 실제 능력</div></div>
+      </div>
+      <div class="grid2" style="margin-top:14px;">
+        <div>
+          <div class="gauge-readout">
+            ${renderGauge(cap.Cpk)}
+            <div class="big" style="color:${g.color}">${fmt(cap.Cpk,3)}</div>
+            <div class="grade">Cpk 게이지 · 등급 ${g.grade} · ${g.label}</div>
+          </div>
+        </div>
+        <div>
+          <table>
+            <thead><tr><th>등급</th><th>Cpk 범위</th><th>판정</th></tr></thead>
+            <tbody>
+              <tr class="${g.grade===0?'highlight':''}"><td>0</td><td>Cpk ≥ 1.67</td><td>매우 충분</td></tr>
+              <tr class="${g.grade===1?'highlight':''}"><td>1</td><td>1.33 ≤ Cpk &lt; 1.67</td><td>충분</td></tr>
+              <tr class="${g.grade===2?'highlight':''}"><td>2</td><td>1.00 ≤ Cpk &lt; 1.33</td><td>괜찮은 수준</td></tr>
+              <tr class="${g.grade===3?'highlight':''}"><td>3</td><td>0.67 ≤ Cpk &lt; 1.00</td><td>모자람</td></tr>
+              <tr class="${g.grade===4?'highlight':''}"><td>4</td><td>Cpk &lt; 0.67</td><td>매우 부족</td></tr>
+            </tbody>
+          </table>
+          <div class="panel-desc" style="margin-top:8px;">Cp는 공정의 <b>잠재 능력</b>(중심 치우침 무시), Cpk는 <b>중심 치우침까지 반영한 실제 단기 능력</b>입니다. 본 등급 판정은 <b>Cpk</b> 기준입니다.</div>
+        </div>
+      </div>
+      <div class="info-box open" style="margin-top:12px;"><b style="color:var(--paper);display:block;margin-bottom:4px;">해석</b>${capabilityInterpretation(cap).map(l=>'· '+l).join('<br>')}</div>
+    </div>
+
+    <div class="panel">
+      <h3>정규성 검정 <span class="info-btn" data-info="norm">i</span></h3>
+      <div class="info-box" id="info-norm">공정능력지수는 데이터가 정규분포를 따른다는 가정 위에서 계산됩니다. Shapiro-Wilk 검정과 Anderson-Darling 검정을 함께 표시하며, p-value ≥ 0.05이면 정규성을 만족한다고 판단합니다.</div>
+      <div class="card-grid">
+        <div class="stat-card">
+          <div class="label">Shapiro-Wilk</div>
+          <div class="value" style="font-size:18px;">W=${fmt(state.sw.W,4)}</div>
+          <div class="note">p=${fmt(state.sw.p,4)} · <span class="badge ${swPass?'good':'bad'}">${swPass?'정규성 만족':'정규성 불만족'}</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Anderson-Darling</div>
+          <div class="value" style="font-size:18px;">A²=${fmt(state.ad.A2,4)}</div>
+          <div class="note">p=${fmt(state.ad.p,4)} · <span class="badge ${adPass?'good':'bad'}">${adPass?'정규성 만족':'정규성 불만족'}</span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">${boxcoxSection}</div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h3>히스토그램 + 규격선</h3>
+        <div class="panel-desc">부분군별 색상 스택 히스토그램, 정규곡선 오버레이</div>
+        ${renderHistogram(state.groups,state.USL,state.LSL,cap)}
+      </div>
+      <div class="panel">
+        <h3>Q-Q Plot</h3>
+        <div class="panel-desc">전체 표본 기준 정규성 시각 진단</div>
+        ${renderQQ(state.groups.flatMap(g=>g.values))}
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>부분군별 박스플롯</h3>
+      ${renderBoxplot(state.groups)}
+    </div>
+  `;
+  document.querySelectorAll('#tab-cap .info-btn').forEach(b=>b.addEventListener('click',()=>{
+    document.getElementById('info-'+b.dataset.info).classList.toggle('open');
+  }));
+  const bcBtn=document.getElementById('boxcoxBtn');
+  if(bcBtn) bcBtn.addEventListener('click',applyBoxCox);
+}
+
+function applyBoxCox(){
+  try{
+    const allVals=state.groups.flatMap(g=>g.values);
+    if(allVals.some(v=>v<=0) || state.USL<=0 || state.LSL<=0){
+      document.getElementById('boxcoxResult').innerHTML='<div class="alert err">Box-Cox 변환은 측정값과 USL/LSL이 모두 양수일 때만 적용 가능합니다. (규격값도 동일한 λ로 변환되어야 하기 때문입니다)</div>';
+      return;
+    }
+    const lambda=boxcoxOptimalLambda(allVals);
+    const transformedGroups=state.groups.map(g=>({label:g.label,values:boxcoxTransform(g.values,lambda)}));
+    const allT=transformedGroups.flatMap(g=>g.values);
+    const swT=shapiroWilk(allT);
+    const USLt=boxcoxTransform([state.USL],lambda)[0];
+    const LSLt=boxcoxTransform([state.LSL],lambda)[0];
+    const capT=computeCapability(transformedGroups,USLt,LSLt);
+    state.boxcox={lambda,sw:swT,Cp:capT.Cp,Cpk:capT.Cpk,Pp:capT.Pp,Ppk:capT.Ppk};
+    document.getElementById('boxcoxResult').innerHTML=`
+      <div class="alert ${swT.p>=0.05?'ok':'err'}">
+        최적 λ=${fmt(lambda,4)} · 변환 후 Shapiro-Wilk p=${fmt(swT.p,4)} (${swT.p>=0.05?'정규성 만족':'여전히 불만족'})<br>
+        변환 척도 기준 지수 — Cp=${fmt(capT.Cp,4)} · Cpk=${fmt(capT.Cpk,4)} · Pp=${fmt(capT.Pp,4)} · Ppk=${fmt(capT.Ppk,4)}<br>
+        <span class="muted" style="font-size:11.5px;">공정능력지수는 무차원 비율이므로 변환 전후 해석이 동일합니다. (규격도 동일한 변환을 적용하여 계산)</span>
+      </div>`;
+    renderHealthTab(); // 종합진단의 정규성 점수·건강도를 즉시 갱신 (탭 전체를 다시 그리진 않음)
+    renderStatusBar();
+  }catch(e){
+    document.getElementById('boxcoxResult').innerHTML='<div class="alert err">변환 중 오류: '+esc(e.message)+'</div>';
+  }
+}
+
+function renderSpcTab(){
+  const el=document.getElementById('tab-spc');
+  if(!state.chartResult){ el.innerHTML=`<div class="panel"><div class="empty-msg">데이터를 불러오고 "분석 실행"을 누르세요.</div></div>`; return; }
+  const cr=state.chartResult;
+  const total=cr.mainChart.length;
+  const violSet=new Set([1,2,3,4,5,6,7,8].flatMap(k=>state.nelson[k]||[]));
+  const varyingNote = state.nelson.varying
+    ? `<div class="alert warn" style="margin-top:8px;">표본크기가 부분군마다 달라 관리한계(UCL/LCL)가 점마다 다릅니다. 이 경우 Nelson's Rules 중 <b>Rule 1(관리한계 이탈)만 적용</b>되며, 나머지 구간 규칙(Rule 2~8)은 평가하지 않습니다.</div>`
+    : '';
+  const ruleRows=Object.keys(NELSON_DESC).map(k=>{
+    const arr=state.nelson[k]||[];
+    const disabled = state.nelson.varying && k!=='1';
+    return `<tr class="${arr.length?'highlight':''}"><td>Rule ${k}</td><td>${NELSON_DESC[k]}</td><td>${disabled?'<span class="muted">(표본크기 변동으로 미적용)</span>':(arr.length? arr.map(i=>esc(String(cr.mainChart[i].label))).join(', ') : '—')}</td></tr>`;
+  }).join('');
+
+  let secondaryViolHtml='';
+  if(cr.secondaryChart && state.nelsonSecondary){
+    const secViolSet=new Set([1,2,3,4,5,6,7,8].flatMap(k=>state.nelsonSecondary[k]||[]));
+    secondaryViolHtml=`<div class="panel-desc" style="margin-top:8px;">주 관리도 이상: <b style="color:${violSet.size?'var(--bad)':'var(--good)'}">${violSet.size}건</b> · 보조 관리도(${esc(cr.secondaryName)}) 이상: <b style="color:${secViolSet.size?'var(--bad)':'var(--good)'}">${secViolSet.size}건</b></div>`;
+  }
+
+  const chartTypeOptions = state.dataType==='continuous'
+    ? ['I-MR','Xbar-R','Xbar-S'].map(t=>`<option value="${t}" ${state.chartType===t?'selected':''}>${t}</option>`).join('')
+    : ['NP','P','C','U'].map(t=>`<option value="${t}" ${state.chartType===t?'selected':''}>${t}</option>`).join('');
+
+  const unitLabel = state.chartType==='I-MR' ? '개체' : (state.dataType==='continuous' ? '부분군' : '로트');
+  const trend=recentTrend(cr.mainChart,8);
+  let trendChip='';
+  if(trend && trend.dir!=='flat'){
+    const arrow=trend.dir==='up'?'↗':'↘', word=trend.dir==='up'?'상승':'하강';
+    trendChip=`<div class="trend-chip">${arrow} 최근 ${trend.m}개 지점에서 완만한 ${word} 추세 감지 — 관리한계 이탈 전이지만 주의가 필요합니다.</div>`;
+  } else if(trend){
+    trendChip=`<div class="trend-chip">→ 최근 ${trend.m}개 지점: 뚜렷한 추세 없이 안정적으로 변동 중</div>`;
+  }
+
+  let revisionSection='';
+  if(state.dataType==='continuous'){
+    revisionSection=`
+      <div class="panel">
+        <h3>이상치 제거 후 관리도 재작성 <span class="info-btn" data-info="rev">i</span></h3>
+        <div class="info-box" id="info-rev">관리한계를 벗어난(<b>Rule 1 기준</b>) ${unitLabel}을 이상원인으로 간주하여 제거하고, 남은 데이터로 관리한계를 다시 계산합니다. 모든 점이 관리상태가 될 때까지(또는 더 이상 제거할 수 없을 때까지) 이 과정을 반복합니다. <b>주 관리도(${esc(state.chartType)})만 기준</b>으로 제거하며, 보조 관리도(${esc(cr.secondaryName||'')}) 이상은 제거 기준에 포함하지 않습니다. 단, <b>종합진단 탭의 안정성 판단에는 보조 관리도 이상도 함께 반영</b>되므로, 재작성으로 주 관리도가 깨끗해져도 종합진단은 여전히 "불안정"으로 표시될 수 있습니다 — 이 경우 보조 관리도(산포) 이상원인을 별도로 조사하세요.</div>
+        <button class="btn btn-primary" id="revisionBtn" style="width:auto;padding:9px 16px;">재작성 실행</button>
+        <div id="revisionResult" style="margin-top:14px;"></div>
+      </div>`;
+  }
+
+  el.innerHTML=`
+    <div class="panel">
+      <h3>관리도 선택</h3>
+      <div class="panel-desc">데이터 구조에 따라 자동 추천된 관리도입니다. 필요 시 직접 변경할 수 있습니다.</div>
+      <div class="field" style="max-width:220px;">
+        <label>관리도 종류</label>
+        <select id="chartTypeSelect">${chartTypeOptions}</select>
+      </div>
+      ${state.chartType==='I-MR' ? `
+      <div class="field" style="max-width:220px;">
+        <label>이동범위(MR) 윈도우 크기 w <span class="info-btn" data-info="mrw">i</span></label>
+        <select id="mrWindowSelect">
+          <option value="2" ${state.mrWindow===2?'selected':''}>2 (연속한 두 관측값, 고전적 정의)</option>
+          <option value="3" ${state.mrWindow===3?'selected':''}>3 (강의자료 기본값)</option>
+        </select>
+      </div>
+      <div class="info-box" id="info-mrw">기본값 3은 강의자료 예제(generate_value_chart의 window=3)와 동일합니다. 교재에 따라 연속한 두 점만 비교하는 w=2를 쓰기도 합니다 — 필요 시 변경하세요.</div>` : ''}
+      <div class="badge good">추천: ${esc(recommendChart())}</div>
+      ${varyingNote}
+    </div>
+
+    <div class="panel">
+      <h3>${esc(state.chartType)} 관리도 — ${total}개 ${esc(unitLabel)}</h3>
+      ${trendChip}
+      ${renderControlChart(cr.mainChart, state.chartType, state.nelson)}
+      ${cr.secondaryChart ? renderControlChart(cr.secondaryChart, cr.secondaryName, state.nelsonSecondary||{}) : ''}
+      ${secondaryViolHtml}
+    </div>
+
+    <div class="panel">
+      <h3>Nelson's Rules 위반 요약 (주 관리도)</h3>
+      <div class="panel-desc">총 ${violSet.size}개 시점에서 이상신호 감지</div>
+      <div class="scroll-x"><table><thead><tr><th>규칙</th><th>설명</th><th>해당 시점</th></tr></thead><tbody>${ruleRows}</tbody></table></div>
+    </div>
+
+    ${revisionSection}
+  `;
+  document.querySelectorAll('#tab-spc .info-btn').forEach(b=>b.addEventListener('click',()=>{
+    document.getElementById('info-'+b.dataset.info).classList.toggle('open');
+  }));
+  const mrwSel=document.getElementById('mrWindowSelect');
+  if(mrwSel) mrwSel.addEventListener('change',(e)=>{
+    state.mrWindow=parseInt(e.target.value);
+    try{
+      const r=computeMainChartFor(state.groups,'I-MR');
+      state.chartResult=r;
+      state.nelson=nelsonRules(r.mainChart);
+      state.nelsonSecondary=r.secondaryChart ? nelsonRules(r.secondaryChart) : null;
+      state.revisionSteps=null;
+      renderStatusBar(); renderSpcTab();
+    }catch(err){
+      document.getElementById('tab-spc').innerHTML=`<div class="panel"><div class="alert err">${esc(err.message)}</div></div>`;
+    }
+  });
+  document.getElementById('chartTypeSelect').addEventListener('change',(e)=>{
+    state.chartType=e.target.value;
+    try{
+      if(state.dataType==='continuous'){
+        const r=computeMainChartFor(state.groups,state.chartType);
+        state.chartResult=r;
+        state.nelson=nelsonRules(r.mainChart);
+        state.nelsonSecondary=r.secondaryChart ? nelsonRules(r.secondaryChart) : null;
+      } else {
+        let cr2;
+        if(state.chartType==='NP') cr2=computeNP(state.countRows);
+        else if(state.chartType==='P') cr2=computeP(state.countRows);
+        else if(state.chartType==='C') cr2=computeC(state.countRows);
+        else cr2=computeU(state.countRows);
+        state.chartResult={mainChart:cr2.mainChart,secondaryChart:null,secondaryName:null};
+        state.nelson=nelsonRules(cr2.mainChart);
+        state.nelsonSecondary=null;
+      }
+      state.revisionSteps=null;
+      renderStatusBar(); renderSpcTab();
+    }catch(err){
+      document.getElementById('tab-spc').innerHTML=`<div class="panel"><div class="alert err">${esc(err.message)}</div></div>`;
+    }
+  });
+  const revBtn=document.getElementById('revisionBtn');
+  if(revBtn) revBtn.addEventListener('click',()=>{
+   try{
+    const steps=iterativeRevision(state.groups,state.chartType);
+    state.revisionSteps=steps;
+    const unit = state.chartType==='I-MR' ? '개체' : '부분군';
+    const html=steps.map(s=>{
+      return `<div class="step">
+        <div class="step-title">${s.iter}단계 — n=${s.n}개 ${unit}</div>
+        <div class="step-body">UCL=${fmt(s.mainChart[0].UCL,3)} · CL=${fmt(s.mainChart[0].CL,3)} · LCL=${fmt(s.mainChart[0].LCL,3)}
+          ${s.oocLabels.length? ' · 이상점 발견: '+s.oocLabels.map(esc).join(', ')+' ('+unit+' 제거 후 재계산)' : ' · 모든 점이 관리상태 ✓'}</div>
+        ${renderControlChart(s.mainChart,state.chartType+' (단계 '+s.iter+')',{})}
+      </div>`;
+    }).join('');
+    document.getElementById('revisionResult').innerHTML=html;
+   }catch(err){
+    document.getElementById('revisionResult').innerHTML=`<div class="alert err">${esc(err.message)}</div>`;
+   }
+  });
+}
+
+function renderQuadrant(verdict,cap){
+  const cells=[
+    {key:'lowcap', cls:'warn', label:'안정 · 능력부족', desc:'이상원인은 없으나 만성적으로 산포·치우침이 큼'},
+    {key:'good',   cls:'good', label:'안정 · 능력충분', desc:'이상적 상태 — 현재 수준 유지'},
+    {key:'crisis', cls:'bad',  label:'불안정 · 능력부족', desc:'이상원인 조사 + 근본 개선 동시 필요'},
+    {key:'unstable',cls:'warn',label:'불안정 · 능력충분', desc:'능력은 있으나 언제든 불량 발생 가능'}
+  ];
+  const cellsHtml=cells.map(c=>{
+    const active=verdict.quadrant===c.key;
+    return `<div class="quadrant-cell ${active?'active '+c.cls:''}">
+      ${active?`<span class="pin">현재</span>`:''}
+      <b>${c.label}</b>${c.desc}
+    </div>`;
+  }).join('');
+  return `
+    <div style="display:inline-block;">
+      <div style="display:flex; gap:8px; margin-left:46px; margin-bottom:5px;">
+        <div style="width:136px; text-align:center; font-size:10.5px; color:var(--muted);">← 능력 부족</div>
+        <div style="width:136px; text-align:center; font-size:10.5px; color:var(--muted);">능력 충분 →</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div style="display:flex; flex-direction:column; justify-content:space-around; width:38px; font-size:10.5px; color:var(--muted); text-align:right;">
+          <div>안정<br>(관리상태)</div>
+          <div>불안정</div>
+        </div>
+        <div class="quadrant-grid">${cellsHtml}</div>
+      </div>
+    </div>`;
+}
+function renderHealthTab(){
+  const el=document.getElementById('tab-health');
+  if(!state.chartResult){ el.innerHTML=`<div class="panel"><div class="empty-msg">데이터를 불러오고 "분석 실행"을 누르세요.</div></div>`; return; }
+
+  const violCount=totalViolationCount(state.nelson,state.nelsonSecondary);
+  const verdict=processVerdict(state.cap,state.nelson,state.nelsonSecondary,state.dataType);
+
+  let capScore=70;
+  if(state.cap){
+    capScore = clamp(100*Math.max(0,state.cap.Cpk)/1.67,0,100);
+  }
+  const totalPoints=state.chartResult.mainChart.length;
+  const stabilityScore=clamp(100-Math.min(100,(violCount/Math.max(1,totalPoints))*400),0,100);
+  let normScore=100;
+  if(state.sw){
+    const pass = state.sw.p>=0.05 || state.ad.p>=0.05;
+    normScore = pass? 100 : (state.boxcox && (state.boxcox.sw.p>=0.05) ? 80 : 45);
+  }
+  const weighted = state.cap ? (capScore*0.5+stabilityScore*0.35+normScore*0.15) : (stabilityScore*0.7+normScore*0.3);
+  const overall=Math.round(weighted);
+  let letter='F',color='var(--bad)';
+  if(overall>=90){letter='A';color='var(--accent)';}
+  else if(overall>=75){letter='B';color='var(--good)';}
+  else if(overall>=60){letter='C';color='var(--warn)';}
+  else if(overall>=40){letter='D';color='var(--orange)';}
+
+  let ppmSection='';
+  if(state.cap){
+    const dr=estimateDefectRate(state.cap,state.USL,state.LSL);
+    ppmSection=`
+    <div class="panel">
+      <h3>추정 부적합률 <span class="info-btn" data-info="ppm">i</span></h3>
+      <div class="info-box" id="info-ppm">정규분포 가정 하에 규격(USL/LSL)을 벗어날 확률을 이론적으로 추정한 값입니다. "잠재"는 군내변동(σ_within)만 고려한 — 즉 이상원인이 전부 제거됐을 때 도달 가능한 — 최선의 상태이고, "실제"는 군간변동까지 포함한 현재 장기 성능입니다. 두 값의 차이가 클수록 이상원인에 의한 손실이 크다는 뜻입니다.</div>
+      <div class="grid2b">
+        <div class="stat-card">
+          <div class="label">잠재 부적합률 (단기, σ_within)</div>
+          <div class="ppm-row" style="margin-top:6px;"><span class="ppm-val">${fmt(dr.potentialRate*100,4)}%</span><span class="muted mono">${fmt(dr.potentialRate*1e6,0)} PPM</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">실제 부적합률 (장기, σ_overall)</div>
+          <div class="ppm-row" style="margin-top:6px;"><span class="ppm-val" style="color:${dr.actualRate>dr.potentialRate*1.5?'var(--bad)':'var(--paper)'}">${fmt(dr.actualRate*100,4)}%</span><span class="muted mono">${fmt(dr.actualRate*1e6,0)} PPM</span></div>
+        </div>
+      </div>
+      ${dr.actualRate>dr.potentialRate*1.5 ? '<div class="alert warn" style="margin-top:6px;">실제 부적합률이 잠재 능력보다 훨씬 높습니다 — 이상원인(부분군 간 변동)이 불량의 주요 원인일 가능성이 큽니다.</div>' : ''}
+    </div>`;
+  }
+
+  const secViol=state.nelsonSecondary?violationCount(state.nelsonSecondary):0;
+  const recos=[];
+  if(state.cap){
+    if(state.cap.Cpk<1.0) recos.push('Cpk가 1.0 미만입니다 — 공정 중심을 규격 중심으로 이동하거나 산포(σ)를 줄이는 개선이 필요합니다. 설비 set point, 원재료 조건, 작업 방법, 측정 환경을 우선 점검하세요.');
+    else if(state.cap.Cpk<1.33) recos.push('Cpk가 충분 수준(1.33) 미달입니다 — 관리상태를 유지하며 설비 set point와 작업표준 점검 등 지속적인 산포 개선을 권장합니다.');
+    if(Math.abs(state.cap.Cp-state.cap.Cpk)>0.15) recos.push('Cp와 Cpk의 차이가 큽니다 — 산포보다 공정 평균이 규격 중심에서 벗어난 치우침이 더 큰 문제일 수 있으므로, 설비 기준값(set point) 재조정을 검토하세요.');
+    const gapLong=state.cap.Cpk-state.cap.Ppk;
+    if(gapLong>0.15) recos.push('Cpk보다 Ppk가 낮습니다 — 단기 능력은 양호하나 장기적으로 로트별·시간대별 변동이 큰 상태일 수 있으므로, 생산 시간·작업자·원재료 로트별 데이터를 비교해 원인을 찾으세요.');
+    const pass = state.sw.p>=0.05 || state.ad.p>=0.05;
+    if(!pass) recos.push('정규성 가정이 만족되지 않았습니다 — Box-Cox 변환 후 공정능력지수를 재계산하세요.');
+  }
+  if(secViol>0) recos.push(`보조 관리도(${esc(state.chartResult.secondaryName||'')})에서 ${secViol}건의 이상신호가 감지되었습니다 — 평균보다 산포 변화가 의심되므로 장비 마모, 작업조건 변화, 측정 시스템 이상 여부를 확인하세요.`);
+  const mainViol=violationCount(state.nelson);
+  if(mainViol>0) recos.push(`주 관리도에서 ${mainViol}개 시점이 Nelson's Rules 위반으로 감지되었습니다 — 이상원인을 분석하고 "관리도 재작성"으로 한계를 재산정하세요.`);
+  if(recos.length===0) recos.push('현재 공정은 안정적으로 관리되고 있으며 능력도 양호합니다. 현재의 관리 수준을 유지하세요.');
+
+  el.innerHTML=`
+    <div class="verdict-banner ${verdict.level}">
+      <div class="vicon">${verdict.level==='good'?'✓':(verdict.level==='warn'?'!':'×')}</div>
+      <div><b style="display:block;font-size:12px;letter-spacing:.4px;color:var(--muted);margin-bottom:3px;">현재 공정 상황 진단</b>${verdict.text}</div>
+    </div>
+
+    ${state.dataType==='continuous' ? `
+    <div class="panel">
+      <h3>공정 상태 매트릭스 <span class="info-btn" data-info="quad">i</span></h3>
+      <div class="info-box" id="info-quad">공정능력(Cpk≥1.33 기준)과 관리상태(<b>주 관리도와 보조 관리도</b>의 Nelson's Rules 위반 0건 기준)를 두 축으로 현재 공정이 어디에 위치하는지 보여줍니다. 강의자료의 "공정능력은 공정이 관리상태일 때 측정해야 한다"는 원칙을 그대로 반영한 진단입니다.</div>
+      ${renderQuadrant(verdict,state.cap)}
+    </div>` : ''}
+
+    ${ppmSection}
+
+    <div class="panel">
+      <h3>종합 공정 건강도 <span class="info-btn" data-info="health">i</span></h3>
+      <div class="info-box" id="info-health">공정능력 점수(50%) · 관리도 안정성 점수(35%, <b>주 관리도+보조 관리도 위반 합산</b>) · 정규성 점수(15%)를 가중 합산한 휴리스틱 지표입니다. 통계적으로 확립된 단일 지수가 아니라, 여러 진단 결과를 한눈에 보기 위한 대시보드 보조 지표입니다.</div>
+      <div class="score-wrap">
+        <div class="score-dial" style="--pct:${overall};"><div class="num" style="color:${color}">${letter}</div></div>
+        <div style="flex:1;min-width:240px;">
+          <div style="font-size:28px;font-family:var(--font-mono);font-weight:700;margin-bottom:10px;">${overall}<span class="muted" style="font-size:14px;">/100</span></div>
+          <div class="bar-row"><div class="bar-label"><span>공정능력 (50%)</span><span class="mono">${fmt(capScore,0)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${capScore}%;background:var(--good)"></div></div></div>
+          <div class="bar-row"><div class="bar-label"><span>관리 안정성 (35%)</span><span class="mono">${fmt(stabilityScore,0)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${stabilityScore}%;background:var(--teal)"></div></div></div>
+          <div class="bar-row"><div class="bar-label"><span>정규성 (15%)</span><span class="mono">${fmt(normScore,0)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${normScore}%;background:var(--accent)"></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>자동 개선 권고</h3>
+      <ul class="reco-list">${recos.map(r=>`<li>${r}</li>`).join('')}</ul>
+    </div>
+    <div class="panel">
+      <button class="btn" style="width:auto;padding:9px 16px;" onclick="window.print()">🖨 리포트 출력</button>
+    </div>
+  `;
+  document.querySelectorAll('#tab-health .info-btn').forEach(b=>b.addEventListener('click',()=>{
+    document.getElementById('info-'+b.dataset.info).classList.toggle('open');
+  }));
+}
+
+/* =====================================================================
+   8. UI WIRING
+   ===================================================================== */
+function saveLocal(){
+  try{
+    localStorage.setItem('gaugeroom_state', JSON.stringify({
+      dataType:state.dataType, countType:state.countType,
+      contInput:document.getElementById('contInput').value,
+      countInput:document.getElementById('countInput').value,
+      USL:state.USL, LSL:state.LSL
+    }));
+  }catch(e){}
+}
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem('gaugeroom_state');
+    if(!raw) return false;
+    const d=JSON.parse(raw);
+    setDataType(d.dataType||'continuous');
+    if(d.countType) setCountType(d.countType);
+    document.getElementById('contInput').value=d.contInput||'';
+    document.getElementById('countInput').value=d.countInput||'';
+    if(d.USL!==undefined) document.getElementById('uslInput').value=d.USL;
+    if(d.LSL!==undefined) document.getElementById('lslInput').value=d.LSL;
+    return true;
+  }catch(e){ return false; }
+}
+
+function setDataType(val){
+  state.dataType=val;
+  document.querySelectorAll('#dataTypeSeg button').forEach(b=>b.classList.toggle('active',b.dataset.val===val));
+  document.getElementById('continuousControls').classList.toggle('hidden',val!=='continuous');
+  document.getElementById('countControls').classList.toggle('hidden',val!=='count');
+}
+function setCountType(val){
+  state.countType=val;
+  document.querySelectorAll('#countTypeSeg button, #countTypeSeg2 button').forEach(b=>b.classList.toggle('active',b.dataset.val===val));
+}
+
+document.getElementById('dataTypeSeg').addEventListener('click',(e)=>{
+  const btn=e.target.closest('button'); if(!btn) return;
+  setDataType(btn.dataset.val);
+});
+['countTypeSeg','countTypeSeg2'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',(e)=>{
+    const btn=e.target.closest('button'); if(!btn) return;
+    setCountType(btn.dataset.val);
+  });
+});
+
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+}));
+
+document.getElementById('themeToggle').addEventListener('click',()=>{
+  const html=document.documentElement;
+  const next = html.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme',next);
+  document.getElementById('themeToggle').textContent = next==='dark' ? '☾ 다크' : '☀ 라이트';
+  if(state.cap || state.chartResult) renderAll();
+});
+
+document.querySelectorAll('.chip[data-preset]').forEach(chip=>chip.addEventListener('click',()=>{
+  const key=chip.dataset.preset;
+  if(key==='pvc'){
+    setDataType('continuous');
+    document.getElementById('contInput').value=PRESETS.pvc.text;
+    document.getElementById('uslInput').value=PRESETS.pvc.USL;
+    document.getElementById('lslInput').value=PRESETS.pvc.LSL;
+  } else if(key==='thickness'){
+    setDataType('continuous');
+    const groups=generateContinuous({target:40,tolerance:2,numSg:30,sgSize:4,sgStd:1.6,meanShift:1.5,skew:false});
+    document.getElementById('contInput').value=groupsToText(groups);
+    document.getElementById('uslInput').value=42;
+    document.getElementById('lslInput').value=38;
+  } else if(key==='skewed'){
+    setDataType('continuous');
+    const groups=generateContinuous({target:100,tolerance:25,numSg:20,sgSize:8,sgStd:45,meanShift:0,skew:true});
+    document.getElementById('contInput').value=groupsToText(groups);
+    document.getElementById('uslInput').value=125;
+    document.getElementById('lslInput').value=75;
+  } else if(key==='led'){
+    setDataType('count'); setCountType('NP');
+    const rows=generateCount({type:'NP',numSg:30,sgSize:300,p:0.02,sizeVariation:0});
+    document.getElementById('countInput').value=rowsToText(rows);
+  } else if(key==='charger'){
+    setDataType('count'); setCountType('C');
+    const rows=generateCount({type:'C',numSg:20,sgSize:500,p:0.1,sizeVariation:0});
+    document.getElementById('countInput').value=rowsToText(rows);
+  } else if(key==='pchart'){
+    setDataType('count'); setCountType('P');
+    const rows=generateCount({type:'P',numSg:20,sgSize:300,p:0.02,sizeVariation:100});
+    document.getElementById('countInput').value=rowsToText(rows);
+  } else if(key==='uchart'){
+    setDataType('count'); setCountType('U');
+    const rows=generateCount({type:'U',numSg:20,sgSize:500,p:0.1,sizeVariation:100});
+    document.getElementById('countInput').value=rowsToText(rows);
+  }
+  runAnalysis();
+}));
+
+document.getElementById('contCsvBtn').addEventListener('click',()=>document.getElementById('contCsvFile').click());
+document.getElementById('contCsvFile').addEventListener('change',(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    document.getElementById('contInput').value=String(ev.target.result).trim();
+    runAnalysis();
+  };
+  reader.onerror=()=>{ alertBox('CSV 파일을 읽는 중 오류가 발생했습니다.'); };
+  reader.readAsText(file);
+  e.target.value='';
+});
+document.getElementById('countCsvBtn').addEventListener('click',()=>document.getElementById('countCsvFile').click());
+document.getElementById('countCsvFile').addEventListener('change',(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    document.getElementById('countInput').value=String(ev.target.result).trim();
+    runAnalysis();
+  };
+  reader.onerror=()=>{ alertBox('CSV 파일을 읽는 중 오류가 발생했습니다.'); };
+  reader.readAsText(file);
+  e.target.value='';
+});
+
+document.getElementById('genBtn').addEventListener('click',()=>{
+  const groups=generateContinuous({
+    target:parseFloat(document.getElementById('genTarget').value),
+    tolerance:parseFloat(document.getElementById('genTol').value),
+    numSg:parseInt(document.getElementById('genNumSg').value),
+    sgSize:parseInt(document.getElementById('genSgSize').value),
+    sgStd:parseFloat(document.getElementById('genStd').value),
+    meanShift:parseFloat(document.getElementById('genShift').value),
+    skew:document.getElementById('genSkew').checked
+  });
+  document.getElementById('contInput').value=groupsToText(groups);
+  const target=parseFloat(document.getElementById('genTarget').value), tol=parseFloat(document.getElementById('genTol').value);
+  document.getElementById('uslInput').value=target+tol;
+  document.getElementById('lslInput').value=target-tol;
+  runAnalysis();
+});
+document.getElementById('cGenBtn').addEventListener('click',()=>{
+  const rows=generateCount({
+    type:state.countType,
+    numSg:parseInt(document.getElementById('cGenNumSg').value),
+    sgSize:parseInt(document.getElementById('cGenSize').value),
+    p:parseFloat(document.getElementById('cGenP').value),
+    sizeVariation:parseInt(document.getElementById('cGenVar').value)
+  });
+  document.getElementById('countInput').value=rowsToText(rows);
+  runAnalysis();
+});
+
+document.getElementById('runBtn').addEventListener('click',runAnalysis);
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  document.getElementById('contInput').value=PRESETS.pvc.text;
+  document.getElementById('uslInput').value=PRESETS.pvc.USL;
+  document.getElementById('lslInput').value=PRESETS.pvc.LSL;
+  document.getElementById('countInput').value='';
+  setDataType('continuous');
+  runAnalysis();
+});
+
+/* ---- init ---- */
+(function init(){
+  const restored=loadLocal();
+  if(!restored){
+    document.getElementById('contInput').value=PRESETS.pvc.text;
+    document.getElementById('uslInput').value=PRESETS.pvc.USL;
+    document.getElementById('lslInput').value=PRESETS.pvc.LSL;
+  }
+  if(!document.getElementById('contInput').value.trim() && !document.getElementById('countInput').value.trim()){
+    document.getElementById('contInput').value=PRESETS.pvc.text;
+    document.getElementById('uslInput').value=PRESETS.pvc.USL;
+    document.getElementById('lslInput').value=PRESETS.pvc.LSL;
+  }
+  runAnalysis();
+})();
+</script>
+</body>
+</html>
